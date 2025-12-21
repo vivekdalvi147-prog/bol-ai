@@ -37,9 +37,10 @@
         .big-link { padding: 18px 25px; font-size: 1.1rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 15px; cursor: pointer; transition: 0.2s; border-bottom: 1px solid var(--border); }
         .big-link:hover { background: var(--glass); color: var(--accent); }
 
-        /* Modern Selectors */
-        .selector-wrapper { display: flex; gap: 10px; padding: 10px 20px; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; }
-        .modern-select { appearance: none; background: var(--msg-user); color: var(--text); border: 1px solid var(--border); padding: 10px 20px; border-radius: 12px; font-size: 0.85rem; cursor: pointer; font-weight: 600; outline: none; transition: 0.3s; }
+        /* Selectors */
+        .selector-wrapper { display: flex; gap: 10px; padding: 10px 20px; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+        .modern-select { appearance: none; background: var(--msg-user); color: var(--text); border: 1px solid var(--border); padding: 10px 20px; border-radius: 12px; font-size: 0.85rem; cursor: pointer; font-weight: 600; outline: none; min-width: 140px; text-align: center; transition: 0.3s; }
+        .modern-select:hover { border-color: var(--accent); }
 
         /* Chat Area */
         #main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; }
@@ -70,18 +71,20 @@
 </head>
 <body data-theme="dark">
 
+    <!-- Maintenance Screen -->
     <div id="maintenance-screen">
         <i class="fas fa-microchip" style="font-size: 5rem; color: var(--accent); margin-bottom: 20px;"></i>
-        <h1 id="maint-title">Logic Core Recalibrating</h1>
+        <h1>Logic Core Recalibrating</h1>
         <p id="maint-msg">Vivek Dalvi is optimizing the multi-server network.</p>
     </div>
 
     <div id="overlay" onclick="closeModals()"></div>
 
+    <!-- Sidebar -->
     <aside id="sidebar">
         <div class="sidebar-header">
             <span class="logo">bol.ai</span>
-            <i class="fas fa-times" onclick="toggleSidebar()"></i>
+            <i class="fas fa-times" style="cursor:pointer" onclick="toggleSidebar()"></i>
         </div>
         <button class="new-chat-btn" onclick="startNewChat()"><i class="fas fa-plus"></i> NEW SESSION</button>
         <div id="history-list" style="flex:1; overflow-y:auto;"></div>
@@ -98,22 +101,27 @@
     <main id="main-content">
         <header>
             <div style="display:flex; align-items:center; gap:15px">
-                <i class="fas fa-bars-staggered" onclick="toggleSidebar()"></i>
+                <i class="fas fa-bars-staggered" style="font-size: 1.5rem; cursor: pointer;" onclick="toggleSidebar()"></i>
                 <div class="logo">bol.ai</div>
             </div>
             <div style="display:flex; gap:15px">
-                <i class="fas fa-cloud-upload-alt" style="color:var(--accent)" title="Save Chat" onclick="manualSave()"></i>
-                <i class="fas fa-moon" onclick="toggleTheme()"></i>
+                <i class="fas fa-cloud-upload-alt" style="cursor:pointer; color:var(--accent); font-size:1.3rem" title="Save Chat" onclick="manualSave()"></i>
+                <i class="fas fa-moon" style="cursor:pointer; font-size:1.3rem" onclick="toggleTheme()"></i>
             </div>
         </header>
 
+        <!-- Selectors -->
         <div class="selector-wrapper">
             <select id="langSelect" class="modern-select">
                 <option value="English">English</option>
                 <option value="Hindi">Hindi (हिंदी)</option>
                 <option value="Marathi">Marathi (मराठी)</option>
+                <option value="Sanskrit">Sanskrit (संस्कृतम्)</option>
                 <option value="Spanish">Spanish</option>
-                <!-- Add other languages as per your original file -->
+            </select>
+
+            <select id="serverSelect" class="modern-select">
+                <option value="auto">Auto-Select Server</option>
             </select>
         </div>
 
@@ -134,7 +142,7 @@
                 </div>
                 <div class="input-box">
                     <textarea id="userInput" placeholder="Ask anything here..." rows="1" oninput="autoExpand(this)"></textarea>
-                    <button id="sendBtn" class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                 </div>
                 <div style="text-align: center; font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">
                     Created by Vivek Dalvi | © 2025 bol.ai All Rights Reserved 
@@ -143,16 +151,16 @@
         </div>
     </main>
 
-    <!-- Modals (All original texts preserved) -->
+    <!-- Modals -->
     <div class="modal" id="aboutModal">
-        <i class="fas fa-times" style="float:right" onclick="closeModals()"></i>
+        <i class="fas fa-times" style="float:right; cursor:pointer" onclick="closeModals()"></i>
         <h2>About bol.ai</h2>
         <p><b>bol.ai</b> is the world's most dedicated Reasoning AI, developed solely by <b>Vivek Dalvi</b>.</p>
         <p>This platform uses a proprietary cluster of high-speed servers to handle complex logical queries.</p>
     </div>
 
     <div class="modal" id="privacyModal">
-        <i class="fas fa-times" style="float:right" onclick="closeModals()"></i>
+        <i class="fas fa-times" style="float:right; cursor:pointer" onclick="closeModals()"></i>
         <h2>Privacy Policy</h2>
         <p>1. <b>Zero Auto-Log:</b> We do not save your chats unless you manually click the "Save" icon.</p>
         <p>2. <b>Security:</b> All data is handled through encrypted Google Firebase channels.</p>
@@ -160,7 +168,7 @@
     </div>
 
     <div class="modal" id="contactModal">
-        <i class="fas fa-times" style="float:right" onclick="closeModals()"></i>
+        <i class="fas fa-times" style="float:right; cursor:pointer" onclick="closeModals()"></i>
         <h2>Contact Support</h2>
         <p>Reach out to <b>Vivek Dalvi</b> at: <br><b style="color:var(--accent)">vcoder7311@gmail.com</b></p>
     </div>
@@ -171,7 +179,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
     <script>
-        // Use your original Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyCi4k67PAo5gwnirZD9Td0ZiiexnbhqIPA",
             authDomain: "bol-ai-d94f4.firebaseapp.com",
@@ -189,23 +196,35 @@
         let chatContext = [];
         let maintenanceActive = false;
 
-        // Maintenance Mode & Admin Config Listener
+        // Firebase Listeners
         db.ref('settings').on('value', snap => {
             const data = snap.val();
             if(data) {
                 maintenanceActive = data.maintenance_mode;
                 document.getElementById('maintenance-screen').style.display = maintenanceActive ? 'flex' : 'none';
                 if(data.custom_description) document.getElementById('maint-msg').innerText = data.custom_description;
+                
+                // Populate Server List
+                const sel = document.getElementById('serverSelect');
+                sel.innerHTML = '<option value="auto">Auto-Select Server</option>';
+                if(data.api_keys) {
+                    data.api_keys.forEach((k, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = i;
+                        opt.innerText = k.name || `Server ${i+1}`;
+                        sel.appendChild(opt);
+                    });
+                }
             }
         });
 
-        // Auth Listener
+        // Google Auth Fix
         auth.onAuthStateChanged(user => {
             currentUser = user;
             const statusEl = document.getElementById('auth-status');
             if(user) {
                 statusEl.innerText = user.displayName;
-                db.ref(`users/${user.uid}/profile`).update({ name: user.displayName, email: user.email, lastActive: Date.now() });
+                db.ref(`users/${user.uid}/profile`).update({ name: user.displayName, email: user.email, lastLogin: Date.now() });
                 loadHistory();
             } else {
                 statusEl.innerText = "Login with Google";
@@ -214,13 +233,17 @@
         });
 
         function handleAuth() {
-            if(currentUser) { if(confirm("Logout?")) auth.signOut().then(()=>location.reload()); }
-            else { auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+            const provider = new firebase.auth.GoogleAuthProvider();
+            if(currentUser) {
+                if(confirm("Do you want to logout?")) auth.signOut().then(()=>location.reload());
+            } else {
+                auth.signInWithPopup(provider).catch(e => alert("Login Failed: " + e.message));
+            }
         }
 
-        // Send Message to Vercel Backend
+        // Send Message
         async function sendMessage() {
-            if(maintenanceActive) return alert("System is currently under maintenance.");
+            if(maintenanceActive) return alert("System is under maintenance.");
             const input = document.getElementById('userInput');
             const text = input.value.trim();
             if(!text) return;
@@ -232,10 +255,17 @@
 
             try {
                 const lang = document.getElementById('langSelect').value;
+                const serverIdx = document.getElementById('serverSelect').value;
+                
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text, lang: lang, context: chatContext.slice(-6) })
+                    body: JSON.stringify({ 
+                        message: text, 
+                        lang: lang, 
+                        context: chatContext.slice(-6),
+                        serverIndex: serverIdx 
+                    })
                 });
 
                 const data = await response.json();
@@ -245,34 +275,34 @@
                     typeEffect(data.reply, data.serverName || "Core");
                     chatContext.push({role: 'user', content: text}, {role: 'assistant', content: data.reply});
                 } else {
-                    appendMsg('ai', "Error: " + (data.error || "Server Limit Reached. Try in 1 minute."));
+                    appendMsg('ai', "Error: " + (data.error || "Unknown response from server."));
                 }
             } catch (e) {
                 document.getElementById('thinking-box').style.display = 'none';
-                appendMsg('ai', "Error: Unable to connect to backend server.");
+                appendMsg('ai', "Error: Failed to connect to Vercel Backend.");
             }
         }
 
-        // Manual Save to Firebase (Private)
+        // Chat Saving & History
         function manualSave() {
-            if(!currentUser) return alert("Please login to save your sessions.");
-            if(chatContext.length === 0) return alert("No chat to save.");
-            const title = prompt("Enter Session Title:", "New Logical Query");
+            if(!currentUser) return alert("Please Login to Save Chat!");
+            if(chatContext.length === 0) return alert("Nothing to save.");
+            const title = prompt("Session Title:", "New Logic Session");
             if(title) {
-                db.ref(`users/${currentUser.uid}/history`).push({ title, messages: chatContext, timestamp: Date.now() });
-                alert("Session saved privately.");
+                db.ref(`users/${currentUser.uid}/history`).push({ title, messages: chatContext, time: Date.now() });
+                alert("Saved to your private account!");
             }
         }
 
         function loadHistory() {
-            db.ref(`users/${currentUser.uid}/history`).limitToLast(10).on('value', snap => {
+            db.ref(`users/${currentUser.uid}/history`).limitToLast(15).on('value', snap => {
                 const list = document.getElementById('history-list');
                 list.innerHTML = "";
                 snap.forEach(c => {
                     const d = c.val();
                     const item = document.createElement('div');
                     item.className = 'big-link';
-                    item.innerHTML = `<i class="fas fa-history"></i> ${d.title.substring(0,20)}`;
+                    item.innerHTML = `<i class="fas fa-history"></i> ${d.title.substring(0,20)}...`;
                     item.onclick = () => {
                         chatContext = d.messages;
                         document.getElementById('chat-container').innerHTML = "";
@@ -284,7 +314,7 @@
             });
         }
 
-        // UI Helpers
+        // UI Functions
         function typeEffect(text, sName) {
             const container = document.getElementById('chat-container');
             const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
@@ -314,15 +344,11 @@
 
         function startNewChat() {
             chatContext = [];
-            document.getElementById('chat-container').innerHTML = `<div class="msg-wrapper"><div class="message ai-msg">New session started. How can I help you today?</div></div>`;
+            document.getElementById('chat-container').innerHTML = `<div class="msg-wrapper"><div class="message ai-msg">New Logic session started. How can I help you today?</div></div>`;
             if(window.innerWidth < 768) toggleSidebar();
         }
 
         function autoExpand(el) { el.style.height = '45px'; el.style.height = (el.scrollHeight) + 'px'; }
         function toggleTheme() { const b = document.body; b.setAttribute('data-theme', b.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; }
-        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
-        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
-    </script>
-</body>
-</html>
+        
