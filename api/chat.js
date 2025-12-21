@@ -1,61 +1,41 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Not Allowed');
-    
-    // Environment Variables को लोड करें
+    const { message, lang, context, serverIndex } = req.body;
+
     const dbUrl = process.env.FIREBASE_DB_URL;
     const dbAuth = process.env.FIREBASE_AUTH_KEY;
 
-    // चेक करें कि क्या Variables मौजूद हैं
-    if (!dbUrl || !dbAuth) {
-        console.error("Missing Env Variables: Check Vercel Settings");
-        return res.status(500).json({ error: "Environment Variables (URL or Auth) missing in Vercel" });
-    }
-
     try {
-        const { message, lang, context } = req.body;
+        // 1. Minute String for Rotation
+        const now = new Date();
+        const minuteStr = now.toISOString().substring(0, 16).replace(/[^0-9]/g, "");
 
-        // 1. Firebase से डेटा माँगना
-        const fetchUrl = `${dbUrl.replace(/\/$/, '')}/settings/api_keys.json?auth=${dbAuth}`;
-        const response = await fetch(fetchUrl);
-        
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error("Firebase Fetch Error:", errText);
-            return res.status(500).json({ error: "Firebase Permission Denied. Check your Auth Key." });
-        }
+        // 2. Fetch Keys
+        const keysRes = await fetch(`${dbUrl}/settings/api_keys.json?auth=${dbAuth}`);
+        const keys = await keysRes.json();
 
-        const keys = await response.json();
-
-        if (!keys) {
-            console.error("No keys found at path: settings/api_keys");
-            return res.status(500).json({ error: "No API Keys found in Firebase Database" });
-        }
-
-        // 2. रोटेशन लॉजिक (Timestamp आधारित)
-        const minuteStr = new Date().toISOString().substring(0, 16).replace(/[^0-9]/g, "");
         let selectedKey = null;
         let selectedIdx = null;
 
-        // Keys को Loop करना (इंडेक्स 0 से शुरू)
-        const keysArray = Object.keys(keys);
-        for (let i of keysArray) {
-            if (!keys[i] || !keys[i].key) continue;
-
-            // Usage चेक करें
-            const usageUrl = `${dbUrl.replace(/\/$/, '')}/api_usage/key_${i}/${minuteStr}.json?auth=${dbAuth}`;
-            const usageRes = await fetch(usageUrl);
-            const usageCount = await usageRes.json() || 0;
-
-            if (usageCount < 5) {
-                selectedKey = keys[i].key;
-                selectedIdx = i;
-                break;
+        // 3. Logic: Manual Select or Auto Rotation
+        if (serverIndex !== 'auto' && keys[serverIndex]) {
+            selectedIdx = serverIndex;
+            selectedKey = keys[serverIndex].key;
+        } else {
+            for (let i in keys) {
+                const usageRes = await fetch(`${dbUrl}/api_usage/key_${i}/${minuteStr}.json?auth=${dbAuth}`);
+                const usage = await usageRes.json() || 0;
+                if (usage < 5) {
+                    selectedKey = keys[i].key;
+                    selectedIdx = i;
+                    break;
+                }
             }
         }
 
-        if (!selectedKey) return res.status(429).json({ error: "All keys limit reached for this minute." });
+        if (!selectedKey) return res.status(429).json({ error: "Server Busy. Try next minute." });
 
-        // 3. OpenRouter AI को कॉल करना
+        // 4. OpenRouter AI Call
         const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -63,10 +43,10 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "google/gemini-pro-1.5",
+                model: "google/gemini-flash-1.5",
                 messages: [
-                    {role: "system", content: `You are bol.ai by Vivek Dalvi. Reply in ${lang}.`},
-                    ...(context || []),
+                    {role: "system", content: `You are bol.ai by Vivek Dalvi. Reply in ${lang} language.`},
+                    ...context,
                     {role: "user", content: message}
                 ]
             })
@@ -75,22 +55,20 @@ export default async function handler(req, res) {
         const data = await aiRes.json();
         
         if (!data.choices) {
-            console.error("AI API Error:", data);
-            return res.status(500).json({ error: "AI API Error. Check your OpenRouter Key/Credit." });
+            return res.status(500).json({ error: "OpenRouter Error: " + (data.error?.message || "Invalid Key") });
         }
 
-        const reply = data.choices[0].message.content;
-
-        // 4. काउंटर बढ़ाना
-        await fetch(`${dbUrl.replace(/\/$/, '')}/api_usage/key_${selectedIdx}/${minuteStr}.json?auth=${dbAuth}`, {
-            method: "PATCH",
-            body: JSON.stringify({ calls: 5 }) // यहाँ आप मैन्युअली 5 कर रहे हैं टेस्टिंग के लिए
+        // 5. Increment Usage
+        const usageRes = await fetch(`${dbUrl}/api_usage/key_${selectedIdx}/${minuteStr}.json?auth=${dbAuth}`);
+        const currentUsage = await usageRes.json() || 0;
+        await fetch(`${dbUrl}/api_usage/key_${selectedIdx}/${minuteStr}.json?auth=${dbAuth}`, {
+            method: "PUT",
+            body: JSON.stringify(currentUsage + 1)
         });
 
-        res.status(200).json({ reply, serverName: keys[selectedIdx].name || "Server" });
+        res.status(200).json({ reply: data.choices[0].message.content, serverName: keys[selectedIdx].name });
 
     } catch (e) {
-        console.error("Critical Crash:", e.message);
-        res.status(500).json({ error: "Internal Server Error: " + e.message });
+        res.status(500).json({ error: "Backend Crash: " + e.message });
     }
 }
