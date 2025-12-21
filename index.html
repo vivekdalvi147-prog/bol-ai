@@ -405,4 +405,58 @@
             if(user) {
                 statusEl.innerText = user.displayName;
                 db.ref(`users/${user.uid}/profile`).update({ name: user.displayName, lastLogin: Date.now() });
-                 
+                loadHistory();
+            } else {
+                statusEl.innerText = "Login with Google";
+                document.getElementById('history-list').innerHTML = "";
+            }
+        });
+
+        function handleAuth() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            if(currentUser) {
+                if(confirm("Logout?")) auth.signOut().then(()=>location.reload());
+            } else {
+                auth.signInWithPopup(provider).catch(e => alert(e.message));
+            }
+        }
+
+        function manualSave() {
+            if(!currentUser) return alert("Please Login to Save Chat!");
+            if(chatContext.length === 0) return alert("Nothing to save.");
+            const title = prompt("Enter Session Title:", "Logic Session");
+            if(title) {
+                db.ref(`users/${currentUser.uid}/history`).push({ title, messages: chatContext, time: Date.now() });
+                alert("Session Saved!");
+            }
+        }
+
+        function loadHistory() {
+            db.ref(`users/${currentUser.uid}/history`).limitToLast(15).on('value', snap => {
+                const list = document.getElementById('history-list');
+                list.innerHTML = "";
+                snap.forEach(c => {
+                    const d = c.val();
+                    const item = document.createElement('div');
+                    item.className = 'big-link';
+                    item.innerHTML = `<i class="fas fa-history"></i> ${d.title.substring(0,20)}...`;
+                    item.onclick = () => {
+                        chatContext = d.messages;
+                        document.getElementById('chat-container').innerHTML = "";
+                        chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                        toggleSidebar();
+                    };
+                    list.prepend(item);
+                });
+            });
+        }
+
+        function startNewChat() {
+            chatContext = [];
+            document.getElementById('chat-container').innerHTML = `<div class="msg-wrapper"><div class="message ai-msg">New Logic session started. How can I assist you today?</div></div>`;
+            if(window.innerWidth < 768) toggleSidebar();
+        }
+
+    </script>
+</body>
+</html>
