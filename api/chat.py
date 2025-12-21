@@ -7,12 +7,10 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
         post_data = json.loads(self.rfile.read(content_length))
-        
         user_message = post_data.get('message')
-        system_prompt = post_data.get('system_prompt', "You are bol.ai")
 
-        # ही API KEY आपण नंतर Vercel मध्ये सेव्ह करू, कोडमध्ये नाही!
-        API_KEY = os.environ.get("OPENROUTER_API_KEY")
+        # Vercel मधून सुरक्षित API Key वाचणे
+        API_KEY = os.environ.get("MY_API_KEY")
 
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
@@ -22,10 +20,7 @@ class handler(BaseHTTPRequestHandler):
             },
             data=json.dumps({
                 "model": "xiaomi/mimo-v2-flash:free",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ]
+                "messages": [{"role": "user", "content": user_message}]
             })
         )
 
