@@ -1,31 +1,49 @@
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Not Allowed');
-    const { message, lang, context } = req.body;
-
+    
+    // Environment Variables को लोड करें
     const dbUrl = process.env.FIREBASE_DB_URL;
     const dbAuth = process.env.FIREBASE_AUTH_KEY;
 
-    try {
-        // 1. डेटा फेच करें
-        const keysRes = await fetch(`${dbUrl}/settings/api_keys.json?auth=${dbAuth}`);
-        const keys = await keysRes.json();
+    // चेक करें कि क्या Variables मौजूद हैं
+    if (!dbUrl || !dbAuth) {
+        console.error("Missing Env Variables: Check Vercel Settings");
+        return res.status(500).json({ error: "Environment Variables (URL or Auth) missing in Vercel" });
+    }
 
-        // अगर डेटाबेस से कुछ नहीं मिला
-        if (!keys) {
-            return res.status(500).json({ error: "Firebase से API Keys नहीं मिल पाईं। अपना Auth Key और URL चेक करें।" });
+    try {
+        const { message, lang, context } = req.body;
+
+        // 1. Firebase से डेटा माँगना
+        const fetchUrl = `${dbUrl.replace(/\/$/, '')}/settings/api_keys.json?auth=${dbAuth}`;
+        const response = await fetch(fetchUrl);
+        
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error("Firebase Fetch Error:", errText);
+            return res.status(500).json({ error: "Firebase Permission Denied. Check your Auth Key." });
         }
 
-        // 2. वर्तमान मिनट का स्ट्रिंग (Timestamp logic)
-        const minuteStr = new Date().toISOString().substring(0, 16).replace(/[^0-9]/g, "");
+        const keys = await response.json();
 
+        if (!keys) {
+            console.error("No keys found at path: settings/api_keys");
+            return res.status(500).json({ error: "No API Keys found in Firebase Database" });
+        }
+
+        // 2. रोटेशन लॉजिक (Timestamp आधारित)
+        const minuteStr = new Date().toISOString().substring(0, 16).replace(/[^0-9]/g, "");
         let selectedKey = null;
         let selectedIdx = null;
 
-        // 3. रोटेशन लॉजिक
-        for (let i in keys) {
-            if (!keys[i]) continue; // अगर कोई इंडेक्स खाली है तो छोड़ दें
+        // Keys को Loop करना (इंडेक्स 0 से शुरू)
+        const keysArray = Object.keys(keys);
+        for (let i of keysArray) {
+            if (!keys[i] || !keys[i].key) continue;
 
-            const usageRes = await fetch(`${dbUrl}/api_usage/key_${i}/${minuteStr}.json?auth=${dbAuth}`);
+            // Usage चेक करें
+            const usageUrl = `${dbUrl.replace(/\/$/, '')}/api_usage/key_${i}/${minuteStr}.json?auth=${dbAuth}`;
+            const usageRes = await fetch(usageUrl);
             const usageCount = await usageRes.json() || 0;
 
             if (usageCount < 5) {
@@ -35,9 +53,9 @@ export default async function handler(req, res) {
             }
         }
 
-        if (!selectedKey) return res.status(429).json({ error: "सभी सर्वर की लिमिट खत्म। 1 मिनट रुकें।" });
+        if (!selectedKey) return res.status(429).json({ error: "All keys limit reached for this minute." });
 
-        // 4. AI Call
+        // 3. OpenRouter AI को कॉल करना
         const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -48,26 +66,31 @@ export default async function handler(req, res) {
                 model: "google/gemini-pro-1.5",
                 messages: [
                     {role: "system", content: `You are bol.ai by Vivek Dalvi. Reply in ${lang}.`},
-                    ...context,
+                    ...(context || []),
                     {role: "user", content: message}
                 ]
             })
         });
 
         const data = await aiRes.json();
-        if(!data.choices) throw new Error("AI Response Error");
+        
+        if (!data.choices) {
+            console.error("AI API Error:", data);
+            return res.status(500).json({ error: "AI API Error. Check your OpenRouter Key/Credit." });
+        }
 
         const reply = data.choices[0].message.content;
 
-        // 5. काउंटर अपडेट
-        await fetch(`${dbUrl}/api_usage/key_${selectedIdx}/${minuteStr}.json?auth=${dbAuth}`, {
-            method: "PUT",
-            body: "5" // या रीयल काउंटर बढ़ाएं, टेस्टिंग के लिए 5 भी रख सकते हैं
+        // 4. काउंटर बढ़ाना
+        await fetch(`${dbUrl.replace(/\/$/, '')}/api_usage/key_${selectedIdx}/${minuteStr}.json?auth=${dbAuth}`, {
+            method: "PATCH",
+            body: JSON.stringify({ calls: 5 }) // यहाँ आप मैन्युअली 5 कर रहे हैं टेस्टिंग के लिए
         });
 
         res.status(200).json({ reply, serverName: keys[selectedIdx].name || "Server" });
 
     } catch (e) {
-        res.status(500).json({ error: "Backend Error: " + e.message });
+        console.error("Critical Crash:", e.message);
+        res.status(500).json({ error: "Internal Server Error: " + e.message });
     }
 }
