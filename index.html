@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>bol.ai | Reasoning Core engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+
+    <style>
+        :root { --bg: #030508; --sidebar-bg: #000000; --accent: #00f2ff; --secondary: #7000ff; --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15); --text: #ffffff; --text-dim: #94a3b8; --msg-user: #1e293b; --msg-ai: #0f172a; --card-glow: rgba(0, 242, 255, 0.1); }
+        [data-theme="light"] { --bg: #f8fafc; --sidebar-bg: #ffffff; --accent: #0066ff; --secondary: #6200ea; --glass: rgba(0, 0, 0, 0.05); --border: rgba(0, 0, 0, 0.1); --text: #0f172a; --text-dim: #475569; --msg-user: #e2e8f0; --msg-ai: #ffffff; --card-glow: rgba(0, 102, 255, 0.05); }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; }
+        #sidebar { width: 320px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: 0.3s; z-index: 3000; }
+        @media (max-width: 768px) { #sidebar { position: fixed; left: -320px; height: 100%; } #sidebar.open { left: 0; } }
+        .sidebar-header { padding: 30px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.8rem; font-weight: 800; background: linear-gradient(45deg, var(--accent), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .new-chat-btn { margin: 0 20px 20px; padding: 15px; border: 1px solid var(--accent); border-radius: 14px; background: transparent; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: 700; transition: 0.3s; }
+        .new-chat-btn:hover { background: var(--accent); color: #000; }
+        .big-link { padding: 18px 25px; font-size: 1.1rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 15px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        #main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; }
+        header { padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        #chat-container { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 30px; }
+        .msg-wrapper { max-width: 900px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
+        .message { padding: 1.4rem; border-radius: 20px; line-height: 1.7; font-size: 1rem; position: relative; box-shadow: 0 5px 20px var(--card-glow); }
+        .ai-msg { background: var(--msg-ai); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .user-msg { background: var(--msg-user); border: 1px solid var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .thinking-container { display: none; align-items: center; gap: 12px; color: var(--accent); font-weight: 600; padding: 10px 0; }
+        .input-area { padding: 25px; background: var(--bg); border-top: 1px solid var(--border); }
+        .input-box { display: flex; background: var(--sidebar-bg); border: 2px solid var(--border); padding: 10px 15px; border-radius: 18px; gap: 10px; }
+        textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; resize: none; min-height: 45px; }
+        .send-btn { background: var(--accent); border: none; width: 45px; height: 45px; border-radius: 14px; cursor: pointer; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: var(--sidebar-bg); border: 2px solid var(--accent); padding: 40px; border-radius: 25px; z-index: 4000; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2500; }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <div id="overlay" onclick="closeModals()"></div>
+
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <span class="logo">bol.ai</span>
+            <i class="fas fa-times" style="cursor:pointer" onclick="toggleSidebar()"></i>
+        </div>
+        <button class="new-chat-btn" onclick="startNewChat()">
+            <i class="fas fa-plus"></i> <span>NEW SESSION</span>
+        </button>
+        <div id="history-list" style="flex:1; overflow-y:auto;"></div>
+        <div class="sidebar-footer">
+            <div class="big-link" onclick="openModal('aboutModal')"><i class="fas fa-rocket"></i> About</div>
+            <div class="big-link" onclick="handleAuth()"><i class="fab fa-google"></i> <span id="auth-status">Login</span></div>
+        </div>
+    </aside>
+
+    <main id="main-content">
+        <header>
+            <i class="fas fa-bars-staggered" style="cursor: pointer;" onclick="toggleSidebar()"></i>
+            <div class="logo">bol.ai</div>
+            <i class="fas fa-moon" style="cursor:pointer" onclick="toggleTheme()"></i>
+        </header>
+
+        <div id="chat-container">
+            <div class="msg-wrapper"><div class="message ai-msg">Welcome to bol.ai. Developed by <b>Vivek Dalvi</b>.</div></div>
+        </div>
+
+        <div class="input-area">
+            <div class="msg-wrapper">
+                <div id="thinking-box" class="thinking-container">Thinking...</div>
+                <div class="input-box">
+                    <textarea id="userInput" placeholder="Ask Vivek's AI..."></textarea>
+                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="modal" id="aboutModal">
+        <h2>About bol.ai</h2>
+        <p>Created by Vivek Dalvi. A high-performance reasoning engine.</p>
+        <button onclick="closeModals()">Close</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <script>
+        // --- Firebase Config (Replace with yours) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCi4k67PAo5gwnirZD9Td0ZiiexnbhqIPA",
+            authDomain: "bol-ai-d94f4.firebaseapp.com",
+            databaseURL: "https://bol-ai-d94f4-default-rtdb.firebaseio.com",
+            projectId: "bol-ai-d94f4",
+            appId: "1:474658917392:web:404b0013aa9f381329ce95"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let chatContext = [];
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            appendMsg('user', text);
+            input.value = '';
+            document.getElementById('thinking-box').style.display = 'block';
+
+            try {
+                // *** महत्त्वाचे: इथे आपण स्वतःच्या पायथन API ला कॉल करतोय ***
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await res.json();
+                document.getElementById('thinking-box').style.display = 'none';
+                
+                if(data.choices) {
+                    const aiRes = data.choices[0].message.content;
+                    appendMsg('ai', aiRes);
+                } else {
+                    appendMsg('ai', "Error: Could not reach server.");
+                }
+            } catch (e) {
+                appendMsg('ai', "Error: Connection failed.");
+                document.getElementById('thinking-box').style.display = 'none';
+            }
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div');
+            wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            container.appendChild(wrap);
+            container.scrollTop = container.scrollHeight;
+            hljs.highlightAll();
+        }
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
+        function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme')==='dark'?'light':'dark'); }
+        function startNewChat() { location.reload(); }
+    </script>
+</body>
+</html>
