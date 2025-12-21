@@ -351,4 +351,8 @@
         function autoExpand(el) { el.style.height = '45px'; el.style.height = (el.scrollHeight) + 'px'; }
         function toggleTheme() { const b = document.body; b.setAttribute('data-theme', b.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; }
-        
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
+    </script>
+</body>
+</html>
