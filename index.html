@@ -310,4 +310,14 @@
         }
 
         function startNewChat() { location.reload(); }
-        
+        function autoExpand(el) { el.style.height = '45px'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:red; font-weight:800">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
