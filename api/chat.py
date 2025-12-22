@@ -13,7 +13,6 @@ class handler(BaseHTTPRequestHandler):
         system_prompt = post_data.get('system')
         history = post_data.get('history', [])
 
-        # Vercel Settings मधील MY_API_KEYS (Comma separated)
         all_keys = os.environ.get("MY_API_KEYS", "").split(",")
         FIREBASE_DB = "https://bol-ai-d94f4-default-rtdb.firebaseio.com"
         
@@ -21,7 +20,6 @@ class handler(BaseHTTPRequestHandler):
         selected_key = None
         selected_index = 0
 
-        # १९+ की मधून मोकळी की शोधणे (५ कॉल प्रति मिनिट मर्यादा)
         for i, key in enumerate(all_keys):
             usage_ref = f"{FIREBASE_DB}/api_usage/key_{i}/{current_minute}.json"
             usage_res = requests.get(usage_ref).json()
@@ -29,7 +27,7 @@ class handler(BaseHTTPRequestHandler):
             
             if count < 5:
                 selected_key = key
-                selected_index = i + 1  # Cloud 1, Cloud 2... साठी
+                selected_index = i + 1
                 requests.put(usage_ref, data=json.dumps(count + 1))
                 break
 
@@ -46,24 +44,16 @@ class handler(BaseHTTPRequestHandler):
         try:
             ai_res = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {selected_key}",
-                    "Content-Type": "application/json"
-                },
-                data=json.dumps({
-                    "model": "xiaomi/mimo-v2-flash:free",
-                    "messages": messages
-                })
+                headers={"Authorization": f"Bearer {selected_key}", "Content-Type": "application/json"},
+                data=json.dumps({"model": "xiaomi/mimo-v2-flash:free", "messages": messages})
             )
-            
             data = ai_res.json()
-            data["api_index"] = selected_index # Front-end ला सांगण्यासाठी की कोणती Cloud API वापरली
+            data["api_index"] = selected_index
 
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(data).encode())
-            
         except Exception as e:
             self.send_response(500)
             self.end_headers()
