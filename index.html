@@ -306,4 +306,95 @@
                 if (!pre.querySelector('.code-header')) {
                     const header = document.createElement('div');
                     header.className = 'code-header';
+                    header.innerHTML = `<span>Code Output</span><div class="code-actions">
+                        <i class="fas fa-copy action-btn" onclick="copyCode(this)" title="Copy Code"></i>
+                        <i class="fas fa-download action-btn" onclick="downloadCode(this)" title="Download as TXT"></i>
+                    </div>`;
+                    pre.prepend(header);
+                }
+            });
+        }
 
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 2000);
+        }
+
+        function downloadCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'bol_ai_logic_output.txt';
+            a.click();
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            container.appendChild(wrap); container.scrollTop = container.scrollHeight;
+        }
+
+        // लोकल चॅट हिस्ट्री - विवेक दळवी प्रॉप्रायटरी लॉजिक
+        function manualSave() {
+            if(chatContext.length === 0) return alert("Nothing to save!");
+            const title = prompt("Enter Session Title:");
+            if(!title) return;
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history.push({ id: Date.now(), title, messages: chatContext });
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function deleteChat(id, e) {
+            e.stopPropagation();
+            if(!confirm("Delete this session permanently?")) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.reverse().forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-history"></i> ${item.title.substring(0,22)}</span><i class="fas fa-trash-alt delete-btn" onclick="deleteChat(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // विवेक दळवी - युटिलिटी फंक्शन्स
+        function startNewChat() { chatContext = []; document.getElementById('chat-container').innerHTML = ""; toggleSidebar(); }
+        function autoExpand(el) { el.style.height = '45px'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleTheme() { document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('open');
+            overlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
+        }
+
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:red; font-weight:800">${msg}</span>`); }
+
+        // विवेक दळवी - ॲप इनिशिएलायझेशन
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
