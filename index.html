@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>bol.ai | Global Reasoning Engine - Advanced 3.0</title>
+    <title>bol.ai | Global Reasoning Engine - Advanced 2.0</title>
     
     <!-- 
         ARCHITECT: VIVEK DALVI
         SYSTEM: BOL.AI REASONING CORE
-        VERSION: 3.0 (ULTRA FAST)
+        VERSION: 2.0 (ULTRA FAST)
     -->
 
     <!-- External Assets -->
@@ -164,7 +164,7 @@
 
     <main id="main-content">
         <header>
-            <div style="display:flex; align-items:center; gap:15px"><i class="fas fa-bars" style="font-size: 1.8rem; cursor: pointer;" onclick="toggleSidebar()"></i><div class="logo">bol.ai 3.0</div></div>
+            <div style="display:flex; align-items:center; gap:15px"><i class="fas fa-bars" style="font-size: 1.8rem; cursor: pointer;" onclick="toggleSidebar()"></i><div class="logo">bol.ai</div></div>
             <div style="display:flex; gap:20px; align-items:center">
                 <div class="select-wrapper">
                     <select onchange="changeTheme(this.value)" class="modern-select">
@@ -198,12 +198,12 @@
                 </select>
             </div>
             <div class="select-wrapper">
-                <select class="modern-select"><option>Distributed Cloud 24.1</option></select>
+                <select class="modern-select"><option> vivek's server</option></select>
             </div>
         </div>
 
         <div id="chat-container">
-            <div class="msg-wrapper"><div class="message ai-msg"><h3>Reasoning Engine 3.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Ultra-fast reasoning and math rendering are now active. Type any complex query below.</p></div></div>
+            <div class="msg-wrapper"><div class="message ai-msg"><h3>bol.ai 2.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Ultra-fast reasoning engine Type any complex query below.</p></div></div>
         </div>
 
         <div class="input-area">
@@ -212,10 +212,10 @@
                     <div class="gate-spinner"></div><span class="pulse-text">VIVEK'S CORE REASONING...</span>
                 </div>
                 <div class="input-box">
-                    <textarea id="userInput" placeholder="Ask anything (Math, Code, Strategy)..." rows="1" oninput="autoExpand(this)"></textarea>
+                    <textarea id="userInput" placeholder="Ask anything ..." rows="1" oninput="autoExpand(this)"></textarea>
                     <button class="send-btn" onclick="sendMessage()"><i class="fas fa-bolt"></i></button>
                 </div>
-                <div style="text-align: center; margin-top: 15px; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 2px;">VIVEK DALVI GLOBAL CORE SYSTEMS | 2025</div>
+                <div style="text-align: center; margin-top: 15px; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 2px;">Created by Vivek Dalvi | © 2025 bol.ai All Rights Reserved</div>
             </div>
         </div>
     </main>
@@ -223,14 +223,14 @@
     <!-- PRO MODALS - BIG & POWERFUL -->
     <div class="modal" id="aboutModal">
         <span class="close-modal-btn" onclick="closeModals()">&times;</span>
-        <h2>Architect</h2>
+        <h2>About</h2>
         <p><b>bol.ai</b> is a high-performance reasoning engine designed and built from the ground up by <b>Vivek Dalvi</b>.</p>
-        <p>By integrating distributed cloud architectures and specialized logic gates, bol.ai achieves human-like reasoning in over 49 languages. Version 3.0 focuses on ultra-fast processing and advanced mathematical accuracy.</p>
+        <p>By integrating distributed cloud architectures and specialized logic gates, bol.ai achieves human-like reasoning in over 49 languages. Version 2.0 focuses on ultra-fast processing and advanced mathematical accuracy.</p>
     </div>
 
     <div class="modal" id="privacyModal">
         <span class="close-modal-btn" onclick="closeModals()">&times;</span>
-        <h2>Logic Privacy</h2>
+        <h2>Privacy</h2>
         <p>We respect your privacy. All your conversations are strictly private and NOT stored on our servers. Everything resides **Locally on your device** cache.</p>
         <p>Vivek Dalvi has implemented secure cloud rotation which ensures your identity is never linked to your logical queries. You are in control of your data.</p>
     </div>
@@ -239,7 +239,7 @@
         <span class="close-modal-btn" onclick="closeModals()">&times;</span>
         <h2>Support</h2>
         <p>For strategic partnerships or high-level technical reporting, reach out to the core developer:</p>
-        <p style="color:var(--accent); font-size: 3rem; font-weight: 800; border: 1px dashed var(--accent); padding: 20px; text-align: center; border-radius: 20px;"><i class="fas fa-envelope-open-text"></i> vcoder7311@gmail.com</p>
+        <p style="color:var(--accent); font-size: 3rem; font-weight: 800; border: 1px dashed var(--accent); padding: 20px; text-align: center; border-radius: 20px;"><i class="fas fa-envelope-open-text"><h3>vcoder7311@gmail.com</h3>
     </div>
 
     <!-- Firebase SDK -->
@@ -287,137 +287,4 @@
                 document.getElementById('thinking-box').style.display = 'none';
 
                 if(res.status === 429) return showError("Cloud limit reached. Vivek's clouds will reset in 60s.");
-                if(data.choices) {
-                    const aiMsg = data.choices[0].message.content;
-                    typeEffect(aiMsg, data.api_index || "Cloud-X");
-                    chatContext.push({role:'user', content:text}, {role:'assistant', content:aiMsg});
-                }
-            } catch(e) { showError("Logic Core Connection Failed."); }
-        }
-
-        // विवेक दळवी - प्रगत टायपिंग इफेक्ट (Ultra-Fast)
-        function typeEffect(text, apiIdx) {
-            const container = document.getElementById('chat-container');
-            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
-            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
-            wrap.appendChild(msgDiv); container.appendChild(wrap);
-            
-            let i = 0;
-            const timer = setInterval(() => {
-                const rawContent = text.substring(0, i);
-                msgDiv.innerHTML = marked.parse(rawContent + "┃");
-                i += 25; // Increase for speed
-                if(i >= text.length + 25) {
-                    clearInterval(timer);
-                    msgDiv.innerHTML = marked.parse(text) + `<br><small style="color:var(--accent); font-weight:800; border-top:1px solid var(--border); display:block; padding-top:10px; margin-top:20px;">Verified by Vivek's Secure Cloud ${apiIdx}</small>`;
-                    processAIResponse(msgDiv);
-                    container.scrollTop = container.scrollHeight;
-                }
-            }, 5);
-        }
-
-        function processAIResponse(element) {
-            // KaTeX Rendering - विवेक दळवी यांचे मॅथ सोल्यूशन
-            renderMathInElement(element, {
-                delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false}
-                ],
-                throwOnError : false
-            });
-
-            // Highlight.js
-            element.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-                const pre = block.parentElement;
-                if (!pre.querySelector('.code-header')) {
-                    const header = document.createElement('div');
-                    header.className = 'code-header';
-                    header.innerHTML = `<span>Code Output</span><div class="code-actions">
-                        <i class="fas fa-copy action-btn" onclick="copyToClipboard(this)" title="Copy Code"></i>
-                        <i class="fas fa-download action-btn" onclick="downloadLogic(this)" title="Download as File"></i>
-                    </div>`;
-                    pre.prepend(header);
-                }
-            });
-        }
-
-        // विवेक दळवी - युटिलिटी फंक्शन्स
-        function copyToClipboard(btn) {
-            const code = btn.closest('pre').querySelector('code').innerText;
-            navigator.clipboard.writeText(code);
-            btn.className = "fas fa-check";
-            setTimeout(() => btn.className = "fas fa-copy", 2000);
-        }
-
-        function downloadLogic(btn) {
-            const code = btn.closest('pre').querySelector('code').innerText;
-            const blob = new Blob([code], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'bol_ai_logic.txt'; a.click();
-        }
-
-        function appendMsg(role, text) {
-            const container = document.getElementById('chat-container');
-            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
-            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
-            renderMathInElement(wrap, {delimiters: [{left: '$', right: '$', display: false}]});
-            container.appendChild(wrap); container.scrollTop = container.scrollHeight;
-        }
-
-        // लोकल चॅट हिस्ट्री - विवेक दळवी इंजिनिअरिंग
-        function manualSave() {
-            if(chatContext.length === 0) return alert("System state is empty!");
-            const title = prompt("Enter Session Label:");
-            if(!title) return;
-            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
-            history.push({ id: Date.now(), title, messages: chatContext });
-            localStorage.setItem('bol_history', JSON.stringify(history));
-            loadHistory();
-        }
-
-        function deleteSession(id, e) {
-            e.stopPropagation(); // विवेक दळवी: प्रिव्हेंट चॅट ओपन ऑन डिलीट
-            if(!confirm("Permanently wipe this logical session?")) return;
-            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
-            history = history.filter(item => item.id !== id);
-            localStorage.setItem('bol_history', JSON.stringify(history));
-            loadHistory();
-        }
-
-        function loadHistory() {
-            const list = document.getElementById('history-list');
-            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
-            list.innerHTML = "";
-            history.reverse().forEach((item) => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                div.innerHTML = `<span><i class="fas fa-clock-rotate-left"></i> ${item.title.substring(0,22)}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
-                div.onclick = () => {
-                    chatContext = item.messages;
-                    document.getElementById('chat-container').innerHTML = "";
-                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
-                    toggleSidebar();
-                };
-                list.appendChild(div);
-            });
-        }
-
-        // विवेक दळवी - थीम आणि यूआय कंट्रोल
-        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
-        function startNewChat() { chatContext = []; document.getElementById('chat-container').innerHTML = ""; toggleSidebar(); }
-        function autoExpand(el) { el.style.height = '45px'; el.style.height = (el.scrollHeight) + 'px'; }
-        function toggleSidebar() { 
-            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
-            sb.classList.toggle('open');
-            ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
-        }
-        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
-        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
-        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:red; font-weight:800">${msg}</span>`); }
-
-        window.onload = loadHistory;
-    </script>
-</body>
-</html>   
+                
