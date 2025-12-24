@@ -7,7 +7,7 @@
     
     <!-- 
         ARCHITECT: VIVEK DALVI
-        SYSTEM: BOL.AI REASONING CORE v3.0
+        SYSTEM: BOL.AI REASONING CORE v2.0
         BUILD: ULTRA-STABLE-FIREBASE-INTEGRATED
         REMARKS: DO NOT REMOVE VIVEK DALVI CREDITS. 
     -->
@@ -252,7 +252,7 @@
         <span class="close-x" onclick="closeAllModals()">&times;</span>
         <h2>About bol-ai</h2>
         <p><b>bol-ai</b> is a next-generation Global Reasoning Engine designed by <b>Vivek Dalvi</b>. It bridges the gap between static code and dynamic AI reasoning.</p>
-        <p>Version 3.0 introduces Firebase Custom Logic (FCL), allowing the system to execute live code snippets for real-time data processing without hitting API limits.</p>
+        <p>Version 2.0 introduces Firebase Custom Logic (FCL), allowing the system to execute live code snippets for real-time data processing without hitting API limits.</p>
     </div>
 
     <div class="pro-modal" id="m-privacy">
@@ -334,7 +334,7 @@
 
             // 3. IF NOT LOCAL, CALL AI CLOUD
             const lang = document.getElementById('langPicker').value;
-            const systemPrompt = `You are bol-ai 3.0 by Vivek Dalvi. Use LaTeX for math. Be concise. Reply in ${lang}.`;
+            const systemPrompt = `You are bol-ai 2.0 by Vivek Dalvi. Use LaTeX for math. Be concise. Reply in ${lang}.`;
 
             try {
                 const response = await fetch("/api/chat", {
