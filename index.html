@@ -287,4 +287,137 @@
                 document.getElementById('thinking-box').style.display = 'none';
 
                 if(res.status === 429) return showError("Cloud limit reached. Vivek's clouds will reset in 60s.");
-                
+                if(data.choices) {
+                    const aiMsg = data.choices[0].message.content;
+                    typeEffect(aiMsg, data.api_index || "Cloud-X");
+                    chatContext.push({role:'user', content:text}, {role:'assistant', content:aiMsg});
+                }
+            } catch(e) { showError("Logic Core Connection Failed."); }
+        }
+
+        // विवेक दळवी - प्रगत टायपिंग इफेक्ट (Ultra-Fast)
+        function typeEffect(text, apiIdx) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            
+            let i = 0;
+            const timer = setInterval(() => {
+                const rawContent = text.substring(0, i);
+                msgDiv.innerHTML = marked.parse(rawContent + "┃");
+                i += 25; // Increase for speed
+                if(i >= text.length + 25) {
+                    clearInterval(timer);
+                    msgDiv.innerHTML = marked.parse(text) + `<br><small style="color:var(--accent); font-weight:800; border-top:1px solid var(--border); display:block; padding-top:10px; margin-top:20px;">Verified by Vivek's Secure Cloud ${apiIdx}</small>`;
+                    processAIResponse(msgDiv);
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 5);
+        }
+
+        function processAIResponse(element) {
+            // KaTeX Rendering - विवेक दळवी यांचे मॅथ सोल्यूशन
+            renderMathInElement(element, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError : false
+            });
+
+            // Highlight.js
+            element.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                if (!pre.querySelector('.code-header')) {
+                    const header = document.createElement('div');
+                    header.className = 'code-header';
+                    header.innerHTML = `<span>Code Output</span><div class="code-actions">
+                        <i class="fas fa-copy action-btn" onclick="copyToClipboard(this)" title="Copy Code"></i>
+                        <i class="fas fa-download action-btn" onclick="downloadLogic(this)" title="Download as File"></i>
+                    </div>`;
+                    pre.prepend(header);
+                }
+            });
+        }
+
+        // विवेक दळवी - युटिलिटी फंक्शन्स
+        function copyToClipboard(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 2000);
+        }
+
+        function downloadLogic(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'bol_ai_logic.txt'; a.click();
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            renderMathInElement(wrap, {delimiters: [{left: '$', right: '$', display: false}]});
+            container.appendChild(wrap); container.scrollTop = container.scrollHeight;
+        }
+
+        // लोकल चॅट हिस्ट्री - विवेक दळवी इंजिनिअरिंग
+        function manualSave() {
+            if(chatContext.length === 0) return alert("System state is empty!");
+            const title = prompt("Enter Session Label:");
+            if(!title) return;
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history.push({ id: Date.now(), title, messages: chatContext });
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation(); // विवेक दळवी: प्रिव्हेंट चॅट ओपन ऑन डिलीट
+            if(!confirm("Permanently wipe this logical session?")) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.reverse().forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-clock-rotate-left"></i> ${item.title.substring(0,22)}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // विवेक दळवी - थीम आणि यूआय कंट्रोल
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { chatContext = []; document.getElementById('chat-container').innerHTML = ""; toggleSidebar(); }
+        function autoExpand(el) { el.style.height = '45px'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal, #overlay').forEach(e => e.style.display='none'); }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:red; font-weight:800">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
