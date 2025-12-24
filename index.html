@@ -333,4 +333,159 @@
             }
 
             // 3. IF NOT LOCAL, CALL AI CLOUD
-            
+            const lang = document.getElementById('langPicker').value;
+            const systemPrompt = `You are bol-ai 3.0 by Vivek Dalvi. Use LaTeX for math. Be concise. Reply in ${lang}.`;
+
+            try {
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        message: query, 
+                        system: systemPrompt, 
+                        history: chatContext.slice(-6) 
+                    })
+                });
+
+                const data = await response.json();
+                loader.style.display = 'none';
+
+                if(data.choices) {
+                    const aiText = data.choices[0].message.content;
+                    renderAITypewriter(aiText);
+                    chatContext.push({role: 'user', content: query}, {role: 'assistant', content: aiText});
+                } else {
+                    drawMessage('ai', "Cloud connection unstable. Re-routing through Vivek's backup...");
+                }
+            } catch (err) {
+                loader.style.display = 'none';
+                drawMessage('ai', "Error: Logic Core disconnected. Check Vercel/GitHub status.");
+            }
+        }
+
+        // Vivek's Injected Logic Executor
+        function executeInjectedLogic(codeSnippet) {
+            // codeSnippet can be a string like "return 'Current time is ' + new Date().toLocaleTimeString()"
+            try {
+                // We use a safe-ish way to execute logic
+                const result = new Function(codeSnippet)();
+                renderAITypewriter(result || "Logic executed successfully.");
+            } catch(e) {
+                drawMessage('ai', "Injected code error. Check Firebase syntax.");
+            }
+        }
+
+        // High-Speed Typewriter Effect
+        function renderAITypewriter(text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+
+            let charIdx = 0;
+            const speed = 30; 
+            const timer = setInterval(() => {
+                msgDiv.innerHTML = marked.parse(text.substring(0, charIdx) + "▊");
+                charIdx += 4;
+                if(charIdx >= text.length + 4) {
+                    clearInterval(timer);
+                    msgDiv.innerHTML = marked.parse(text);
+                    postProcessMath(msgDiv);
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 10);
+        }
+
+        function drawMessage(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            container.appendChild(wrap);
+            postProcessMath(wrap);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function postProcessMath(el) {
+            renderMathInElement(el, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError : false
+            });
+            el.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                if (!block.parentElement.querySelector('.code-banner')) {
+                    const b = document.createElement('div');
+                    b.className = 'code-banner';
+                    b.innerHTML = `<span>LOGIC_OUTPUT</span><i class="fas fa-copy" style="cursor:pointer" onclick="copyCode(this)"></i>`;
+                    block.parentElement.prepend(b);
+                }
+            });
+        }
+
+        // UI Helpers
+        function resizer(el) { el.style.height = '24px'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        function showModal(id) { 
+            document.getElementById('modal-overlay').style.display = 'block'; 
+            document.getElementById(id).style.display = 'block'; 
+        }
+        function closeAllModals() { 
+            document.querySelectorAll('.pro-modal, #modal-overlay').forEach(m => m.style.display = 'none'); 
+        }
+        function setTheme(v) { document.body.setAttribute('data-theme', v); }
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 2000);
+        }
+
+        function startFreshSession() {
+            chatContext = [];
+            document.getElementById('chat-container').innerHTML = '<div class="msg-wrapper"><div class="message ai-msg">Logic session cleared. Ready for new input.</div></div>';
+            if(window.innerWidth < 768) toggleSidebar();
+        }
+
+        // Snapshot Logic - LocalStorage
+        function saveSnapshot() {
+            if(chatContext.length === 0) return;
+            const name = prompt("Enter Logic Label:");
+            if(!name) return;
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history.push({ id: Date.now(), title: name, data: chatContext });
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.slice().reverse().forEach(item => {
+                const d = document.createElement('div');
+                d.className = 'history-item';
+                d.innerHTML = `<span><i class="fas fa-microchip"></i> ${item.title}</span><i class="fas fa-trash-can del-btn" onclick="deleteLogic(${item.id}, event)"></i>`;
+                d.onclick = () => {
+                    chatContext = item.data;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => drawMessage(m.role === 'user' ? 'user' : 'ai', m.content));
+                    if(window.innerWidth < 768) toggleSidebar();
+                };
+                list.appendChild(d);
+            });
+        }
+
+        function deleteLogic(id, e) {
+            e.stopPropagation();
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(h => h.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            renderHistoryList();
+        }
+
+        window.onload = renderHistoryList;
+    </script>
+</body>
+</html>
