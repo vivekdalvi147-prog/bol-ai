@@ -313,4 +313,285 @@
 
         let currentUser = null;
         let isLoginMode = true;
+        let admin_custom_desc = "";
+        let chatContext = [];
+
+        // --- 2. AUTHENTICATION LOGIC ---
+
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) {
+                // Save user to Firestore if not exists
+                const userRef = db.collection('users').doc(user.uid);
+                userRef.set({
+                    email: user.email,
+                    lastLogin: new Date(),
+                    verified: user.emailVerified
+                }, { merge: true });
+            }
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            if (currentUser) {
+                const verifiedStatus = currentUser.emailVerified ? '<i class="fas fa-check-circle" style="color:var(--success)"></i>' : '<i class="fas fa-exclamation-circle" style="color:orange" title="Verify Email"></i>';
+                container.innerHTML = `
+                    <div class="user-info">${currentUser.email} ${verifiedStatus}</div>
+                    <button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>
+                `;
+            } else {
+                container.innerHTML = `<button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>`;
+            }
+        }
+
+        function openAuthModal(mode) {
+            isLoginMode = (mode === 'login');
+            renderAuthForm();
+            document.getElementById('authModal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            renderAuthForm();
+        }
+
+        function renderAuthForm() {
+            const title = document.getElementById('authTitle');
+            const btn = document.getElementById('authActionBtn');
+            const toggle = document.getElementById('authToggleText');
+            
+            if(isLoginMode) {
+                title.innerText = "Login";
+                btn.innerText = "LOGIN";
+                toggle.innerText = "New user? Create account";
+            } else {
+                title.innerText = "Sign Up";
+                btn.innerText = "CREATE ACCOUNT";
+                toggle.innerText = "Already have an account? Login";
+            }
+        }
+
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            
+            if(!email || !pass) return alert("Please fill all fields");
+
+            if(isLoginMode) {
+                auth.signInWithEmailAndPassword(email, pass)
+                    .then(() => {
+                        closeModals();
+                        // alert("Logged in successfully");
+                    })
+                    .catch(e => alert(e.message));
+            } else {
+                auth.createUserWithEmailAndPassword(email, pass)
+                    .then(cred => {
+                        // Send verification link
+                        cred.user.sendEmailVerification().then(() => {
+                            alert("Account created! Verification link sent to " + email);
+                            closeModals();
+                        });
+                    })
+                    .catch(e => alert(e.message));
+            }
+        }
+
+        function handleLogout() {
+            auth.signOut().then(() => {
+                window.location.reload(); // Refresh to reset state
+            });
+        }
+
+        // --- 3. 5-MINUTE TIMER LOGIC ---
+        setTimeout(() => {
+            if (!currentUser) {
+                document.getElementById('forceLoginModal').style.display = 'block';
+                document.getElementById('overlay').style.display = 'block';
+            }
+        }, 300000); // 5 minutes = 300000 ms
+
+        // --- 4. CHAT LOGIC (Vercel Backend) ---
         
+        // Maintenance Listener
+        rtdb.ref('settings').on('value', snap => {
+            const d = snap.val();
+            if(d) {
+                admin_custom_desc = d.custom_description || "";
+                document.getElementById('maintenance-screen').style.display = d.maintenance_mode ? 'flex' : 'none';
+            }
+        });
+
+        async function sendMessage() {
+            if (!currentUser) {
+                // Optional: Force login check on send? 
+                // Currently allowing guest usage until 5 min timer hits.
+            }
+
+            const input = document.getElementById('userInput'), text = input.value.trim();
+            if(!text) return;
+            
+            appendMsg('user', text);
+            input.value = ''; input.style.height = 'auto';
+            document.getElementById('thinking-box').style.display = 'flex';
+
+            const lang = document.getElementById('langSelect').value;
+            const system = `You are bol.ai, an Advanced Reasoning AI built by Vivek Dalvi. ${admin_custom_desc}. 
+            CRITICAL: For mathematical expressions, fractions, or equations, ALWAYS use LaTeX notation (wrap in $ for inline or $$ for blocks). 
+            Example: $7 \div 6 = \frac{7}{6}$. Master: Vivek Dalvi. Reply in ${lang}. Keep responses concise where possible.`;
+
+            // Vercel API Connection
+            try {
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text, system: system, history: chatContext.slice(-6) })
+                });
+
+                document.getElementById('thinking-box').style.display = 'none';
+
+                if(res.status === 429) return showError("Cloud limit reached. Vivek's clouds will reset in 60s.");
+                
+                const data = await res.json();
+                
+                if(data.choices || data.message) {
+                    const aiMsg = data.choices ? data.choices[0].message.content : data.message;
+                    // Token calculation (Estimate: 1 token ~= 4 chars)
+                    const tokens = Math.ceil(aiMsg.length / 4);
+                    typeEffect(aiMsg, data.api_index || "Cloud-X", tokens);
+                    chatContext.push({role:'user', content:text}, {role:'assistant', content:aiMsg});
+                } else {
+                    // Fallback for demo if API fails
+                     throw new Error("No response");
+                }
+            } catch(e) { 
+                // Fallback Simulation for UI testing if Vercel API is not present locally
+                document.getElementById('thinking-box').style.display = 'none';
+                console.error(e);
+                appendMsg('ai', "Backend Connection Failed (Ensure Vercel API is running). <br>Error: " + e.message); 
+            }
+        }
+
+        function typeEffect(text, apiIdx, tokens) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            
+            // Render basic Markdown first to avoid breaking HTML during typing
+            msgDiv.innerHTML = marked.parse(text);
+            
+            // Add Footer
+            const footer = document.createElement('div');
+            footer.className = 'msg-footer';
+            footer.innerHTML = `<span>API: ${apiIdx}</span><span class="token-count">Tokens: ${tokens}</span>`;
+            msgDiv.appendChild(footer);
+
+            processAIResponse(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function processAIResponse(element) {
+            // KaTeX Rendering
+            renderMathInElement(element, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError : false
+            });
+
+            // Highlight.js
+            element.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                if (!pre.querySelector('.code-header')) {
+                    const header = document.createElement('div');
+                    header.className = 'code-header';
+                    header.innerHTML = `<span>Code Output</span><i class="fas fa-copy" style="cursor:pointer" onclick="copyCode(this)"></i>`;
+                    pre.prepend(header);
+                }
+            });
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            renderMathInElement(wrap, {delimiters: [{left: '$', right: '$', display: false}]});
+            container.appendChild(wrap); 
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // --- 5. LOCAL STORAGE SAVING (As requested) ---
+        function manualSave() {
+            if(chatContext.length === 0) return alert("System state is empty!");
+            const title = prompt("Enter Session Label:");
+            if(!title) return;
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history.push({ id: Date.now(), title, messages: chatContext });
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            if(!confirm("Wipe this session?")) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.reverse().forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title.substring(0,20)}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // --- UTILS ---
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { chatContext = []; document.getElementById('chat-container').innerHTML = ""; if(window.innerWidth <= 768) toggleSidebar(); }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            // On mobile, overlay shows when sidebar is open. On desktop, overlay helps with modals.
+            if(window.innerWidth <= 768) {
+                ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+            }
+        }
+        
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 1500);
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error); font-weight:700">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
