@@ -291,4 +291,436 @@
                         <option value="Shona">Shona</option>
                         <option value="Sinhala">Sinhala</option>
                         <option value="Slovak">Slovak</option>
-                        
+                        <option value="Slovenian">Slovenian</option>
+                        <option value="Somali">Somali</option>
+                        <option value="Sundanese">Sundanese</option>
+                        <option value="Tajik">Tajik</option>
+                        <option value="Tatar">Tatar</option>
+                        <option value="Tibetan">Tibetan</option>
+                        <option value="Turkmen">Turkmen</option>
+                        <option value="Uyghur">Uyghur</option>
+                        <option value="Uzbek">Uzbek</option>
+                        <option value="Welsh">Welsh</option>
+                        <option value="Xhosa">Xhosa</option>
+                        <option value="Yiddish">Yiddish</option>
+                        <option value="Yoruba">Yoruba</option>
+                        <option value="Zulu">Zulu</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <div class="sidebar-label">Interface Theme</div>
+                <select onchange="changeTheme(this.value)" class="modern-select">
+                    <option value="dark">Dark Theme</option>
+                    <option value="light">Light Theme</option>
+                    <option value="cyber">Cyber Mode</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="sidebar-footer" style="padding:15px; border-top:1px solid var(--border);">
+            <div class="history-item" onclick="openModal('aboutModal')"><span><i class="fas fa-info-circle"></i> About bol-ai</span></div>
+            <!-- UPDATED PRIVACY POLICY LINK -->
+            <div class="history-item" onclick="window.location.href='https://vivek.com'"><span><i class="fas fa-user-secret"></i> Logic Privacy</span></div>
+            <div class="history-item" onclick="openModal('contactModal')"><span><i class="fas fa-headset"></i> System Support</span></div>
+        </div>
+    </aside>
+
+    <main id="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px">
+                <i class="fas fa-bars" style="font-size: 1.5rem; cursor: pointer;" onclick="toggleSidebar()"></i>
+                <div class="logo" style="font-size:1.5rem;">bol-ai</div>
+            </div>
+            <div style="display:flex; gap:15px; align-items:center">
+                <!-- Keep manual save if needed, but auto-save is now active -->
+                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.4rem" onclick="manualSave()" title="Snapshot Logic (Local)"></i>
+            </div>
+        </header>
+
+        <div id="chat-container">
+            <div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 2.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Ultra-fast reasoning engine. Ask anything.</p></div></div>
+        </div>
+
+        <div class="input-area">
+            <div class="msg-wrapper">
+                <div class="thinking-box" id="thinking-box">
+                    <div class="gate-spinner"></div><span style="color:var(--accent); font-weight:700">VIVEK'S CORE REASONING...</span>
+                </div>
+                <div class="input-box">
+                    <textarea id="userInput" placeholder="Ask anything..." rows="1" oninput="autoExpand(this)"></textarea>
+                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">Created by Vivek Dalvi | © 2026 bol-ai All Rights Reserved</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- AUTH MODAL -->
+    <div class="modal" id="authModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2 id="authTitle">Login</h2>
+        <div class="auth-form">
+            <input type="email" id="authEmail" placeholder="Email Address">
+            <input type="password" id="authPass" placeholder="Password">
+            <button class="auth-submit" id="authActionBtn" onclick="handleAuth()">LOGIN</button>
+            <div class="auth-toggle" onclick="toggleAuthMode()" id="authToggleText">New user? Create account</div>
+        </div>
+    </div>
+
+    <!-- FORCE LOGIN MODAL -->
+    <div class="modal" id="forceLoginModal" style="z-index: 6000; text-align:center;">
+        <h2 style="color:var(--error)">Session Expired</h2>
+        <p>You have used the guest mode for 5 minutes.</p>
+        <p>Please <b>Login</b> to continue using Vivek Dalvi's Logic Engine.</p>
+        <button class="auth-submit" onclick="openAuthModal('login'); document.getElementById('forceLoginModal').style.display='none';">LOGIN NOW</button>
+    </div>
+
+    <!-- PRO MODALS -->
+    <div class="modal" id="aboutModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>About</h2>
+        <p><b>bol-ai</b> is a high-performance reasoning engine designed by <b>Vivek Dalvi</b>.</p>
+        <p>Version 2.0 integrates secure Firebase Authentication (Direct Login) and Firestore data management.</p>
+    </div>
+
+    <!-- PRIVACY MODAL (Kept for reference but button now redirects) -->
+    <div class="modal" id="privacyModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Privacy</h2>
+        <p>We respect your privacy. User accounts are securely stored in Firebase Firestore.</p>
+        <p>Chat History is stored <b>Locally on your device</b> when you click Save.</p>
+    </div>
+
+    <div class="modal" id="contactModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Support</h2>
+        <p>For strategic partnerships, reach out to the core developer:</p>
+        <p style="color:var(--accent); font-size: 1.5rem; font-weight: 800; border: 1px dashed var(--accent); padding: 15px; text-align: center; border-radius: 15px;">vcoder7311@gmail.com</p>
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION (Vivek's Config) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); 
+
+        let currentUser = null;
+        let isLoginMode = true;
+        let admin_custom_desc = "";
+        let chatContext = [];
+        
+        // AUTO-SAVE SESSION ID
+        let currentSessionId = Date.now();
+
+        // --- 2. FIRESTORE SYNC (FIX FOR MAINTENANCE & DESC) ---
+        db.collection('settings').doc('system').onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                admin_custom_desc = data.custom_description || "";
+                const maintScreen = document.getElementById('maintenance-screen');
+                if (data.maintenance_mode === true) {
+                    maintScreen.style.display = 'flex';
+                } else {
+                    maintScreen.style.display = 'none';
+                }
+            }
+        });
+
+        // --- 3. AUTHENTICATION LOGIC (DIRECT - NO EMAIL VERIFICATION) ---
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) {
+                // Save user to Firestore immediately upon login/signup
+                db.collection('users').doc(user.uid).set({
+                    email: user.email,
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            }
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            if (currentUser) {
+                container.innerHTML = `
+                    <div class="user-info">${currentUser.email} <i class="fas fa-check-circle" style="color:var(--success)"></i></div>
+                    <button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>
+                `;
+            } else {
+                container.innerHTML = `<button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>`;
+            }
+        }
+
+        function openAuthModal(mode) {
+            isLoginMode = (mode === 'login');
+            renderAuthForm();
+            document.getElementById('authModal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            renderAuthForm();
+        }
+
+        function renderAuthForm() {
+            const title = document.getElementById('authTitle');
+            const btn = document.getElementById('authActionBtn');
+            const toggle = document.getElementById('authToggleText');
+            
+            if(isLoginMode) {
+                title.innerText = "Login";
+                btn.innerText = "LOGIN";
+                toggle.innerText = "New user? Create account";
+            } else {
+                title.innerText = "Sign Up";
+                btn.innerText = "CREATE ACCOUNT";
+                toggle.innerText = "Already have an account? Login";
+            }
+        }
+
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            
+            if(!email || !pass) return alert("Please fill all fields");
+
+            if(isLoginMode) {
+                // LOGIN
+                auth.signInWithEmailAndPassword(email, pass)
+                    .then(() => {
+                        closeModals();
+                    })
+                    .catch(e => alert("Login Failed: " + e.message));
+            } else {
+                // SIGN UP (Direct - No Email Verification Required)
+                auth.createUserWithEmailAndPassword(email, pass)
+                    .then((userCredential) => {
+                        alert("Account created successfully! Welcome to bol-ai.");
+                        closeModals();
+                    })
+                    .catch(e => alert("Sign Up Failed: " + e.message));
+            }
+        }
+
+        function handleLogout() {
+            auth.signOut().then(() => {
+                window.location.reload(); 
+            });
+        }
+
+        // --- 4. 5-MINUTE TIMER ---
+        setTimeout(() => {
+            if (!currentUser) {
+                document.getElementById('forceLoginModal').style.display = 'block';
+                document.getElementById('overlay').style.display = 'block';
+            }
+        }, 300000); 
+
+        // --- 5. CHAT LOGIC ---
+        async function sendMessage() {
+            const input = document.getElementById('userInput'), text = input.value.trim();
+            if(!text) return;
+            
+            appendMsg('user', text);
+            
+            // ADD TO CONTEXT AND AUTO-SAVE
+            chatContext.push({role:'user', content:text});
+            autoSaveSession(); 
+
+            input.value = ''; input.style.height = 'auto';
+            document.getElementById('thinking-box').style.display = 'flex';
+
+            const lang = document.getElementById('langSelect').value;
+            
+            // Using the synced 'admin_custom_desc' from Firestore
+            const system = `You are bol-ai, an Advanced Reasoning AI built by Vivek Dalvi. 
+            SYSTEM KNOWLEDGE: ${admin_custom_desc}. 
+            CRITICAL: For mathematical expressions, ALWAYS use LaTeX notation (wrap in $ for inline or $$ for blocks). 
+            Example: $7 \div 6 = \frac{7}{6}$. Master: Vivek Dalvi. Reply in ${lang}.`;
+
+            try {
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text, system: system, history: chatContext.slice(-7) }) // increased history slightly
+                });
+
+                document.getElementById('thinking-box').style.display = 'none';
+
+                if(res.status === 429) return showError("Cloud limit reached. Vivek's clouds will reset in 60s.");
+                
+                const data = await res.json();
+                
+                if(data.choices || data.message) {
+                    const aiMsg = data.choices ? data.choices[0].message.content : data.message;
+                    const tokens = Math.ceil(aiMsg.length / 4);
+                    typeEffect(aiMsg, data.api_index || "Cloud-X", tokens);
+                    chatContext.push({role:'assistant', content:aiMsg});
+                    // AUTO-SAVE AFTER AI REPLIES
+                    autoSaveSession();
+                } else {
+                     throw new Error("No response");
+                }
+            } catch(e) { 
+                document.getElementById('thinking-box').style.display = 'none';
+                console.error(e);
+                appendMsg('ai', "Connection Failed try again  <br>Error: " + e.message); 
+            }
+        }
+
+        function typeEffect(text, apiIdx, tokens) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            
+            msgDiv.innerHTML = marked.parse(text);
+            
+            const footer = document.createElement('div');
+            footer.className = 'msg-footer';
+            footer.innerHTML = `<span>server: ${apiIdx}</span><span class="token-count">Tokens: ${tokens}</span>`;
+            msgDiv.appendChild(footer);
+
+            processAIResponse(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function processAIResponse(element) {
+            renderMathInElement(element, {
+                delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+                throwOnError : false
+            });
+            element.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                if (!pre.querySelector('.code-header')) {
+                    const header = document.createElement('div');
+                    header.className = 'code-header';
+                    header.innerHTML = `<span>Code Output</span><i class="fas fa-copy" style="cursor:pointer" onclick="copyCode(this)"></i>`;
+                    pre.prepend(header);
+                }
+            });
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            renderMathInElement(wrap, {delimiters: [{left: '$', right: '$', display: false}]});
+            container.appendChild(wrap); 
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // --- AUTOMATIC SAVING LOGIC ---
+        function autoSaveSession() {
+            if(chatContext.length === 0) return;
+
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            
+            // Check if current session exists in history
+            const existingIndex = history.findIndex(item => item.id === currentSessionId);
+            
+            // Generate a title from the first user message if possible
+            let title = "New Conversation";
+            const firstUserMsg = chatContext.find(m => m.role === 'user');
+            if (firstUserMsg) {
+                // Take first 25 chars for title
+                title = firstUserMsg.content.substring(0, 25) + (firstUserMsg.content.length>25 ? "..." : "");
+            }
+
+            const sessionData = { 
+                id: currentSessionId, 
+                title: title, 
+                messages: chatContext,
+                timestamp: Date.now()
+            };
+
+            if (existingIndex > -1) {
+                // Update existing
+                history[existingIndex] = sessionData;
+            } else {
+                // Add new
+                history.push(sessionData);
+            }
+
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory(); // Update sidebar immediately
+        }
+
+        // --- MANUAL SAVE (Backup) ---
+        function manualSave() {
+            if(chatContext.length === 0) return alert("System state is empty!");
+            const title = prompt("Enter Session Label:");
+            if(!title) return;
+            // Force a new ID to duplicate/snapshot
+            const snapshotId = Date.now() + 1; 
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history.push({ id: snapshotId, title, messages: chatContext });
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            if(!confirm("Wipe this session?")) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            
+            // If deleting current session, clear view
+            if(id === currentSessionId) {
+                startNewChat();
+            } else {
+                loadHistory();
+            }
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            // Sort by timestamp desc (newest first) if available, or just reverse
+            history.sort((a,b) => (b.timestamp || b.id) - (a.timestamp || a.id));
+
+            history.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    currentSessionId = item.id; // Switch active ID to this loaded session
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // --- UTILS ---
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        
+        function startNewChat() { 
+            chatContext = []; 
+            currentSessionId = Date.now(); // NEW ID for new chat
+            document.getElementById('chat-container').innerHTML = ""; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            
+   
