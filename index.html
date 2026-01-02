@@ -739,4 +739,52 @@
                     
                     document.getElementById('chat-container').innerHTML = "";
                     chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+
+                    // Reset Ad counter based on history length to keep flow consistent
+                    const aiMsgs = chatContext.filter(m => m.role === 'assistant').length;
+                    aiReplyCount = aiMsgs;
+                    
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // --- UTILS ---
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { 
+            chatContext = []; 
+            currentSessionId = Date.now(); // New ID for new session
+            aiReplyCount = 0; 
+            document.getElementById('chat-container').innerHTML = '<div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 2.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Ultra-fast reasoning engine. Ask anything.</p></div></div>'; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            if(window.innerWidth <= 768) {
+                ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+            }
+        }
+        
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 1500);
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error); font-weight:700">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
                     
