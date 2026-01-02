@@ -732,4 +732,68 @@
         function deleteSession(id, e) {
             e.stopPropagation();
             if(!confirm("Wipe this session?")) return;
-            
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.reverse().forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title.substring(0,20)}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    aiReplyCount = chatContext.filter(m => m.role === 'assistant').length; // Reset ad counter based on loaded chat
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // --- UTILS ---
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { 
+            chatContext = []; 
+            aiReplyCount = 0; // Reset ad counter
+            localStorage.removeItem('bol_autosave'); // Clear autosave
+            document.getElementById('chat-container').innerHTML = '<div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 2.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Ultra-fast reasoning engine. Ask anything.</p></div></div>'; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            if(window.innerWidth <= 768) {
+                ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+            }
+        }
+        
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 1500);
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error); font-weight:700">${msg}</span>`); }
+
+        window.onload = function() {
+            loadHistory();
+            restoreAutoSave(); // Load autosave on startup
+        };
+    </script>
+</body>
+</html>
