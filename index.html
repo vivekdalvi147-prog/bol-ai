@@ -298,4 +298,368 @@
     </div>
 
     <div class="modal" id="aboutModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>About</h2>
+        <p><b>bol-ai 2.0</b> + App Engine.</p>
+        <p>Allows real-time execution of single-file apps via Firestore.</p>
+    </div>
+
+    <div class="modal" id="contactModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Support</h2>
+        <p style="color:var(--accent); font-size: 1.5rem; font-weight: 800; border: 1px dashed var(--accent); padding: 15px; text-align: center; border-radius: 15px;">vcoder7311@gmail.com</p>
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
         
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); 
+
+        let currentUser = null;
+        let isLoginMode = true;
+        let admin_custom_desc = "";
+        let chatContext = [];
+        let currentSessionId = Date.now();
+        let availableApps = []; // Stores app metadata from Firestore
+
+        // --- 2. FIRESTORE SYNC & APP LOADING ---
+        db.collection('settings').doc('system').onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                admin_custom_desc = data.custom_description || "";
+                document.getElementById('maintenance-screen').style.display = data.maintenance_mode ? 'flex' : 'none';
+            }
+        });
+
+        // Load Apps Metadata (To tell AI what's available)
+        function loadAppsMetadata() {
+            db.collection('apps').onSnapshot(snapshot => {
+                availableApps = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    availableApps.push({ id: doc.id, description: data.description });
+                });
+                console.log("Apps Loaded:", availableApps.length);
+            });
+        }
+        loadAppsMetadata();
+
+        // --- 3. AUTH LOGIC ---
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) db.collection('users').doc(user.uid).set({ email: user.email, lastLogin: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            if (currentUser) {
+                container.innerHTML = `<div class="user-info">${currentUser.email}</div><button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>`;
+            } else {
+                container.innerHTML = `<button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>`;
+            }
+        }
+
+        function openAuthModal(mode) {
+            isLoginMode = (mode === 'login');
+            renderAuthForm();
+            openModal('authModal');
+        }
+
+        function toggleAuthMode() { isLoginMode = !isLoginMode; renderAuthForm(); }
+
+        function renderAuthForm() {
+            document.getElementById('authTitle').innerText = isLoginMode ? "Login" : "Sign Up";
+            document.getElementById('authActionBtn').innerText = isLoginMode ? "LOGIN" : "CREATE ACCOUNT";
+            document.getElementById('authToggleText').innerText = isLoginMode ? "New user? Create account" : "Already have an account? Login";
+        }
+
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            if(!email || !pass) return alert("Fill all fields");
+            
+            const promise = isLoginMode ? auth.signInWithEmailAndPassword(email, pass) : auth.createUserWithEmailAndPassword(email, pass);
+            promise.then(() => closeModals()).catch(e => alert(e.message));
+        }
+
+        function handleLogout() { auth.signOut().then(() => window.location.reload()); }
+
+        // --- 4. USER MEMORY SYSTEM ---
+        function loadUserMemory() {
+            const mem = JSON.parse(localStorage.getItem('bol_user_memory') || '{}');
+            document.getElementById('memName').value = mem.name || '';
+            document.getElementById('memBio').value = mem.bio || '';
+            return mem;
+        }
+
+        function saveUserMemory() {
+            const name = document.getElementById('memName').value;
+            const bio = document.getElementById('memBio').value;
+            localStorage.setItem('bol_user_memory', JSON.stringify({ name, bio }));
+            alert("Memory Updated! AI will now remember this.");
+            closeModals();
+        }
+
+        // --- 5. ADMIN APP PANEL ---
+        let logoClicks = 0;
+        function handleLogoClick() {
+            logoClicks++;
+            if(logoClicks >= 5) {
+                if(!currentUser) return alert("Admin: Please Login first.");
+                openModal('adminAppModal');
+                logoClicks = 0;
+            }
+        }
+
+        function saveAppToFirestore() {
+            const id = document.getElementById('appId').value.trim().toLowerCase();
+            const desc = document.getElementById('appDesc').value;
+            const code = document.getElementById('appCode').value;
+
+            if(!id || !desc || !code) return alert("All fields required");
+
+            db.collection('apps').doc(id).set({
+                description: desc,
+                code: code,
+                updatedBy: currentUser.email,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                alert("App '" + id + "' saved successfully!");
+                closeModals();
+            }).catch(e => alert("Error saving app: " + e.message));
+        }
+
+        // --- 6. CORE INTELLIGENCE (CHAT + APP EXECUTION) ---
+        async function sendMessage() {
+            const input = document.getElementById('userInput'), text = input.value.trim();
+            if(!text) return;
+            
+            appendMsg('user', text);
+            chatContext.push({role:'user', content:text});
+            autoSaveSession(); 
+            
+            input.value = ''; input.style.height = 'auto';
+            document.getElementById('thinking-box').style.display = 'flex';
+            document.getElementById('thinking-text').innerText = "VIVEK'S CORE REASONING...";
+
+            const lang = document.getElementById('langSelect').value;
+            const memory = loadUserMemory();
+            const memoryString = memory.name ? `USER DATA: Name=${memory.name}, Context=${memory.bio}.` : "";
+            
+            // CONSTRUCT SYSTEM PROMPT WITH APPS
+            let appListStr = availableApps.map(a => `- ID: ${a.id}, Desc: ${a.description}`).join('\n');
+            
+            const system = `You are bol-ai, created by Vivek Dalvi. 
+            ${memoryString}
+            Available System Apps (Tools):
+            ${appListStr}
+            
+            INSTRUCTIONS:
+            1. If the user asks something requiring real-time data (like time, date, specific calculation) that matches an App ID, you MUST use the app.
+            2. To use an app, reply ONLY with: {{EXECUTE:app_id}}
+            3. Do not guess the answer if an app exists.
+            4. If no app is needed, answer normally in ${lang}.
+            5. Master: Vivek Dalvi. Use LaTeX for math.`;
+
+            try {
+                // FIRST CALL (Reasoning)
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text, system: system, history: chatContext.slice(-6) })
+                });
+
+                if(res.status !== 200) throw new Error("API Error");
+                const data = await res.json();
+                let aiMsg = data.choices ? data.choices[0].message.content : data.message;
+
+                // CHECK FOR APP EXECUTION COMMAND
+                const execMatch = aiMsg.match(/\{\{EXECUTE:(.*?)\}\}/);
+
+                if (execMatch) {
+                    const appId = execMatch[1];
+                    document.getElementById('thinking-text').innerText = `EXECUTING APP: ${appId}...`;
+                    
+                    // Fetch App Code
+                    const appDoc = await db.collection('apps').doc(appId).get();
+                    if(!appDoc.exists) {
+                        finishChat(`Error: App '${appId}' not found in database.`, 0);
+                        return;
+                    }
+
+                    const appCode = appDoc.data().code;
+                    
+                    // EXECUTE IN SANDBOX
+                    const result = await executeAppCode(appCode);
+                    
+                    // SEND RESULT BACK TO AI
+                    chatContext.push({role:'assistant', content: `Requesting tool: ${appId}`});
+                    chatContext.push({role:'user', content: `System Tool Output for '${appId}': ${result}. \nNow answer my original question based on this data.`});
+
+                    // SECOND CALL (Final Answer)
+                    const res2 = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: "Generate answer", system: system, history: chatContext.slice(-8) })
+                    });
+                    
+                    const data2 = await res2.json();
+                    const finalMsg = data2.choices ? data2.choices[0].message.content : data2.message;
+                    finishChat(finalMsg, Math.ceil(finalMsg.length/4), appId);
+
+                } else {
+                    // Normal Answer
+                    finishChat(aiMsg, Math.ceil(aiMsg.length/4));
+                }
+
+            } catch(e) {
+                document.getElementById('thinking-box').style.display = 'none';
+                appendMsg('ai', "Connection Failed: " + e.message);
+            }
+        }
+
+        function executeAppCode(htmlCode) {
+            return new Promise((resolve) => {
+                const sandbox = document.getElementById('app-sandbox');
+                sandbox.innerHTML = htmlCode; // Inject HTML/JS
+                
+                // Allow JS to run, then grab text content of the sandbox after a short delay
+                // Note: Scripts in innerHTML might not execute immediately in some contexts without this trick:
+                const scripts = sandbox.getElementsByTagName("script");
+                for(let i=0; i<scripts.length; i++) {
+                    eval(scripts[i].innerText); // Execute script (ADMIN TRUSTED ONLY)
+                }
+
+                setTimeout(() => {
+                    // We assume the app writes readable text to the sandbox div or specific elements
+                    const output = sandbox.innerText.trim() || "App executed but returned no text.";
+                    sandbox.innerHTML = ""; // Clean up
+                    resolve(output);
+                }, 500); // 500ms execution window
+            });
+        }
+
+        function finishChat(text, tokens, appId = null) {
+            document.getElementById('thinking-box').style.display = 'none';
+            chatContext.push({role:'assistant', content:text});
+            autoSaveSession();
+            typeEffect(text, tokens, appId);
+        }
+
+        function typeEffect(text, tokens, usedApp) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            
+            // Add App Indicator if tool was used
+            let appHeader = "";
+            if(usedApp) {
+                appHeader = `<div class="app-indicator"><i class="fas fa-bolt"></i> Powered by ${usedApp}</div>`;
+            }
+
+            msgDiv.innerHTML = appHeader + marked.parse(text);
+            
+            const footer = document.createElement('div');
+            footer.className = 'msg-footer';
+            footer.innerHTML = `<span>Tokens: ${tokens}</span>`;
+            msgDiv.appendChild(footer);
+
+            renderMathInElement(msgDiv, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}], throwOnError: false});
+            msgDiv.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            renderMathInElement(wrap, {delimiters: [{left: '$', right: '$', display: false}]});
+            container.appendChild(wrap); 
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // --- 7. AUTO SAVE & HISTORY ---
+        function autoSaveSession() {
+            if(chatContext.length === 0) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            const existingIndex = history.findIndex(item => item.id === currentSessionId);
+            
+            let title = "New Conversation";
+            const firstUserMsg = chatContext.find(m => m.role === 'user');
+            if (firstUserMsg) title = firstUserMsg.content.substring(0, 25) + (firstUserMsg.content.length>25?"...":"");
+
+            const sessionData = { id: currentSessionId, title, messages: chatContext, timestamp: Date.now() };
+            if (existingIndex > -1) history[existingIndex] = sessionData;
+            else history.push(sessionData);
+
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.sort((a,b) => (b.timestamp || b.id) - (a.timestamp || a.id));
+
+            history.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    currentSessionId = item.id;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => {
+                        // Skip internal system-tool messages for clean UI
+                        if(!m.content.startsWith("System Tool Output") && !m.content.startsWith("Requesting tool")) {
+                            appendMsg(m.role==='assistant'?'ai':'user', m.content);
+                        }
+                    });
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            if(!confirm("Delete session?")) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            if(id === currentSessionId) startNewChat(); else loadHistory();
+        }
+
+        // --- UTILS ---
+        function manualSave() { autoSaveSession(); alert("Session Saved Locally"); }
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { chatContext = []; currentSessionId = Date.now(); document.getElementById('chat-container').innerHTML = ""; if(window.innerWidth <= 768) toggleSidebar(); }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            if(window.innerWidth <= 768) ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal').forEach(e => e.style.display='none'); document.getElementById('overlay').style.display='none'; document.getElementById('sidebar').classList.remove('open'); }
+
+        window.onload = () => { loadHistory(); loadUserMemory(); };
+        
+        // Timer for forced login
+        setTimeout(() => { if (!currentUser) document.getElementById('forceLoginModal').style.display = 'block'; }, 300000);
+    </script>
+</body>
+</html>
