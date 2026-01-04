@@ -736,4 +736,23 @@
         function toggleSidebar() { 
             const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
             sb.classList.toggle('open');
-            
+            if(window.innerWidth <= 768) { ov.style.display = sb.classList.contains('open') ? 'block' : 'none'; }
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 1500);
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error); font-weight:700">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
