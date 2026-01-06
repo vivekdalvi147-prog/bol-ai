@@ -759,4 +759,84 @@
                 title = firstUserMsg.content.substring(0, 25) + (firstUserMsg.content.length>25 ? "..." : "");
             }
             const sessionData = { 
-            
+              id: currentSessionId, 
+                title: title, 
+                messages: chatContext,
+                timestamp: Date.now()
+            };
+            if (existingIndex > -1) { history[existingIndex] = sessionData; } 
+            else { history.push(sessionData); }
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function manualSave() {
+            if(chatContext.length === 0) return alert("System state is empty!");
+            const title = prompt("Enter Session Label:");
+            if(!title) return;
+            const snapshotId = Date.now() + 1; 
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history.push({ id: snapshotId, title, messages: chatContext });
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            if(!confirm("Wipe this session?")) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            if(id === currentSessionId) { startNewChat(); } else { loadHistory(); }
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.sort((a,b) => (b.timestamp || b.id) - (a.timestamp || a.id));
+            history.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages;
+                    currentSessionId = item.id;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { 
+            chatContext = []; currentSessionId = Date.now(); 
+            document.getElementById('chat-container').innerHTML = ""; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar'), ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            if(window.innerWidth <= 768) { ov.style.display = sb.classList.contains('open') ? 'block' : 'none'; }
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function copyCode(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code);
+            btn.className = "fas fa-check";
+            setTimeout(() => btn.className = "fas fa-copy", 1500);
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error); font-weight:700">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
