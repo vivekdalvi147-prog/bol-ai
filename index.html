@@ -317,4 +317,452 @@
     <optgroup label="American Languages">
         <option value="English US">English (US)</option>
         <option value="English UK">English (UK)</option>
+        <option value="Spanish Latin">Spanish (Latin America)</option>
+        <option value="Portuguese Brazil">Portuguese (Brazil)</option>
+        <option value="Quechua">Quechua</option>
+        <option value="Guarani">Guarani</option>
+    </optgroup>
+</select>
+            </div>
+            <div>
+                <div class="sidebar-label">Interface Theme</div>
+                <select onchange="changeTheme(this.value)" class="modern-select">
+                    <option value="dark">Dark Theme</option>
+                    <option value="light">Light Theme</option>
+                    <option value="cyber">Cyber Mode</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="sidebar-footer" style="padding:15px; border-top:1px solid var(--border);">
+            <div class="history-item" onclick="openModal('aboutModal')"><span><i class="fas fa-info-circle"></i> About bol-ai</span></div>
+            <div class="history-item" onclick="window.location.href='https://vivek.com'"><span><i class="fas fa-user-secret"></i> Logic Privacy</span></div>
+            <!-- Click this 5 times for ADMIN PANEL -->
+            <div class="history-item" onclick="handleSecretAdminClick()"><span><i class="fas fa-headset"></i> System Support</span></div>
+        </div>
+    </aside>
+
+    <main id="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px">
+                <i class="fas fa-bars" style="font-size: 1.5rem; cursor: pointer;" onclick="toggleSidebar()"></i>
+                <div class="logo" style="font-size:1.5rem;">bol-ai</div>
+            </div>
+            <div style="display:flex; gap:15px; align-items:center">
+                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.4rem" onclick="manualSave()" title="Snapshot Logic (Local)"></i>
+            </div>
+        </header>
+
+        <div id="chat-container">
+            <div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 1.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Apps Layer Active. Ask anything...</p></div></div>
+        </div>
+
+        <div class="input-area">
+            <div class="msg-wrapper">
+                <div class="thinking-box" id="thinking-box">
+                    <div class="gate-spinner"></div><span style="color:var(--accent); font-weight:700">VIVEK'S CORE REASONING...</span>
+                </div>
+                <div class="input-box">
+                    <textarea id="userInput" placeholder="Ask anything..." rows="1" oninput="autoExpand(this)"></textarea>
+                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">Created by Vivek Dalvi | © 2026 bol-ai | All Rights Reserved</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- AUTH MODAL -->
+    <div class="modal" id="authModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2 id="authTitle">Login</h2>
+        <div class="auth-form">
+            <input type="email" id="authEmail" placeholder="Email Address">
+            <input type="password" id="authPass" placeholder="Password">
+            <button class="auth-submit" id="authActionBtn" onclick="handleAuth()">LOGIN</button>
+            <div class="auth-toggle" onclick="toggleAuthMode()" id="authToggleText">New user? Create account</div>
+        </div>
+    </div>
+
+    <!-- ADMIN DEVELOPER MODAL -->
+    <div class="modal" id="adminModal" style="max-width: 600px;">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2><i class="fas fa-code"></i> Developer Console</h2>
+        <p>Add Micro-Apps (HTML/JS) to Firebase. These trigger on user keywords.</p>
+        <div class="auth-form admin-form">
+            <label>App Name</label>
+            <input type="text" id="appName" placeholder="e.g. Clock App">
+            
+            <label>Trigger Keywords (comma separated)</label>
+            <input type="text" id="appKeywords" placeholder="e.g. time, date, today, clock">
+            
+            <label>JavaScript Code (Must return a string)</label>
+            <textarea id="appCode" placeholder="return 'Current Time: ' + new Date().toLocaleString();"></textarea>
+            
+            <button class="auth-submit" onclick="saveAppToFirestore()">DEPLOY APP TO CLOUD</button>
+            <hr style="border:0; border-top:1px solid var(--border); margin:15px 0;">
+            <div style="font-size:0.8rem; color:var(--accent);">Current Active Apps: <span id="activeAppCount">Loading...</span></div>
+        </div>
+    </div>
+
+    <!-- FORCE LOGIN MODAL -->
+    <div class="modal" id="forceLoginModal" style="z-index: 6000; text-align:center;">
+        <h2 style="color:var(--error)">Session Expired</h2>
+        <p>You have used the guest mode for 5 minutes.</p>
+        <p>Please <b>Login</b> to continue using Vivek Dalvi's Logic Engine.</p>
+        <button class="auth-submit" onclick="openAuthModal('login'); document.getElementById('forceLoginModal').style.display='none';">LOGIN NOW</button>
+    </div>
+
+    <!-- ABOUT MODAL -->
+    <div class="modal" id="aboutModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>About</h2>
+     <p>
+    <strong>bol-ai</strong> is a 
+    <span class="highlight">high-performance reasoning engine</span> 
+    designed by <strong>Vivek Dalvi</strong>, built to deliver 
+    <span class="highlight">fast, accurate, and intelligent</span> responses.
+  </p>
+
+  <p>
+    <strong>Version 1.0</strong> integrates 
+    <span class="badge">Real-Time Dynamic Apps</span> via 
+    <span class="badge">Firebase</span> along with 
+    <span class="badge">Local Memory</span>, enabling 
+    <span class="highlight">personalized and context-aware interactions</span>.
+  </p>
+    </div>
+
+    <div class="modal" id="contactModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Support</h2>
+        <p>If you encounter any errors, please message us.</p>
+        <p style="color:var(--accent); font-size: 1.5rem; font-weight: 800; border: 1px dashed var(--accent); padding: 15px; text-align: center; border-radius: 15px;">vcoder7311@gmail.com</p>
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION (Vivek's Config) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
         
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); 
+
+        let currentUser = null;
+        let isLoginMode = true;
+        let admin_custom_desc = "";
+        let chatContext = [];
+        let currentSessionId = Date.now();
+
+        // New Variables for Popups
+        let promptCallback = null;
+        let confirmCallback = null;
+
+        // --- NEW VARIABLES FOR APPS & MEMORY ---
+        let registeredApps = []; 
+        let userMemory = {}; 
+
+        // --- LOAD USER MEMORY FROM LOCAL STORAGE ---
+        function loadUserMemory() {
+            const savedMem = localStorage.getItem('bol_user_memory');
+            if (savedMem) {
+                userMemory = JSON.parse(savedMem);
+            } else {
+                userMemory = { name: "User", preferences: "", facts: [] };
+            }
+        }
+        loadUserMemory();
+
+        function saveUserMemoryInLocal() {
+            localStorage.setItem('bol_user_memory', JSON.stringify(userMemory));
+        }
+
+        // --- LOAD DYNAMIC APPS FROM FIRESTORE ---
+        db.collection('apps').onSnapshot((snapshot) => {
+            registeredApps = [];
+            snapshot.forEach(doc => {
+                registeredApps.push(doc.data());
+            });
+            if(document.getElementById('activeAppCount')) {
+                document.getElementById('activeAppCount').innerText = registeredApps.length;
+            }
+        });
+
+        // --- FIRESTORE SYNC ---
+        db.collection('settings').doc('system').onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                admin_custom_desc = data.custom_description || "";
+                const maintScreen = document.getElementById('maintenance-screen');
+                if (data.maintenance_mode === true) {
+                    maintScreen.style.display = 'flex';
+                } else {
+                    maintScreen.style.display = 'none';
+                }
+            }
+        });
+
+        // --- AUTH LOGIC ---
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) {
+                db.collection('users').doc(user.uid).set({
+                    email: user.email,
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            }
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            if (currentUser) {
+                container.innerHTML = `
+                    <div class="user-info">${currentUser.email} <i class="fas fa-check-circle" style="color:var(--success)"></i></div>
+                    <button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>
+                `;
+            } else {
+                container.innerHTML = `<button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>`;
+            }
+        }
+
+        function openAuthModal(mode) {
+            isLoginMode = (mode === 'login');
+            renderAuthForm();
+            document.getElementById('authModal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            renderAuthForm();
+        }
+
+        function renderAuthForm() {
+            const title = document.getElementById('authTitle');
+            const btn = document.getElementById('authActionBtn');
+            const toggle = document.getElementById('authToggleText');
+            if(isLoginMode) {
+                title.innerText = "Login";
+                btn.innerText = "LOGIN";
+                toggle.innerText = "New user? Create account";
+            } else {
+                title.innerText = "Sign Up";
+                btn.innerText = "CREATE ACCOUNT";
+                toggle.innerText = "Already have an account? Login";
+            }
+        }
+
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            if(!email || !pass) return showCustomAlert("Please fill all fields");
+
+            if(isLoginMode) {
+                auth.signInWithEmailAndPassword(email, pass).then(() => closeModals()).catch(e => showCustomAlert(e.message));
+            } else {
+                auth.createUserWithEmailAndPassword(email, pass).then(() => {
+                    showCustomAlert("Account created successfully!");
+                    closeModals();
+                }).catch(e => showCustomAlert(e.message));
+            }
+        }
+
+        function handleLogout() {
+            auth.signOut().then(() => window.location.reload());
+        }
+
+        // --- 5 MINUTE TIMER ---
+        setTimeout(() => {
+            if (!currentUser) {
+                document.getElementById('forceLoginModal').style.display = 'block';
+                document.getElementById('overlay').style.display = 'block';
+            }
+        }, 300000); 
+
+        // --- DEVELOPER MODE SECRET TRIGGER ---
+        let secretClicks = 0;
+        function handleSecretAdminClick() {
+            secretClicks++;
+            if (secretClicks === 5) {
+                document.getElementById('adminModal').style.display = 'block';
+                document.getElementById('overlay').style.display = 'block';
+                secretClicks = 0;
+            } else if (secretClicks === 1) {
+                openModal('contactModal');
+            }
+        }
+
+        // --- ADMIN: SAVE APP TO FIREBASE ---
+        function saveAppToFirestore() {
+            const name = document.getElementById('appName').value;
+            const keywords = document.getElementById('appKeywords').value.toLowerCase().split(',').map(k => k.trim());
+            const code = document.getElementById('appCode').value;
+
+            if(!name || !code) return showCustomAlert("Name and Code are required.");
+
+            db.collection('apps').add({
+                name: name,
+                keywords: keywords,
+                code: code,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                showCustomAlert("App Deployed to Vivek's Cloud Successfully!");
+                closeModals();
+                document.getElementById('appName').value = "";
+                document.getElementById('appKeywords').value = "";
+                document.getElementById('appCode').value = "";
+            }).catch(e => showCustomAlert("Error: " + e.message));
+        }
+
+        // --- CUSTOM ALERT/PROMPT/CONFIRM SYSTEM (REPLACES BROWSER NATIVES) ---
+        function showCustomAlert(msg) {
+            document.getElementById('alertMessage').innerText = msg;
+            openModal('customAlertModal');
+        }
+
+        function openCustomPrompt(title, callback) {
+            document.getElementById('promptTitle').innerText = title;
+            document.getElementById('promptInput').value = "";
+            promptCallback = callback;
+            openModal('customPromptModal');
+            document.getElementById('promptInput').focus();
+        }
+
+        function handlePromptSubmit() {
+            const val = document.getElementById('promptInput').value;
+            if (promptCallback) promptCallback(val);
+            closeModals();
+        }
+
+        function openCustomConfirm(msg, callback) {
+            document.getElementById('confirmMessage').innerText = msg;
+            confirmCallback = callback;
+            openModal('customConfirmModal');
+        }
+
+        function handleConfirmSubmit() {
+            if (confirmCallback) confirmCallback();
+            closeModals();
+        }
+
+        // --- CORE CHAT LOGIC ---
+        async function sendMessage() {
+            const input = document.getElementById('userInput'), text = input.value.trim();
+            if(!text) return;
+            
+            appendMsg('user', text);
+            chatContext.push({role:'user', content:text});
+            autoSaveSession(); 
+
+            input.value = ''; input.style.height = 'auto';
+            document.getElementById('thinking-box').style.display = 'flex';
+
+            const lang = document.getElementById('langSelect').value;
+
+            // 1. EXECUTE RELEVANT APPS
+            let appResults = "";
+            const lowerText = text.toLowerCase();
+            
+            registeredApps.forEach(app => {
+                const isMatch = app.keywords.some(k => lowerText.includes(k));
+                if (isMatch) {
+                    try {
+                        const runCode = new Function(app.code);
+                        const result = runCode();
+                        appResults += `[SYSTEM APP DATA (${app.name}): ${result}] \n`;
+                    } catch (err) {
+                        console.error(`App ${app.name} Failed:`, err);
+                    }
+                }
+            });
+
+            // 2. PREPARE SYSTEM PROMPT
+            const memoryString = `USER PROFILE (Stored Locally): Name: ${userMemory.name}, Facts: ${JSON.stringify(userMemory.facts)}.`;
+            
+            const systemPrompt = `You are bol-ai, Vivek Dalvi's Reasoning Engine.
+            
+            ADMIN KNOWLEDGE: ${admin_custom_desc}
+            REAL-TIME DATA CONTEXT: ${appResults}
+            ${memoryString}
+
+            INSTRUCTIONS:
+            1. Use REAL-TIME DATA if available to answer questions like "Time", "Date", etc.
+            2. If the user provides new personal info (Name, Likes, etc.), append a hidden tag at the END of your response like this:
+               <<<MEMORY_UPDATE: {"name": "NewName", "fact": "User likes coding"}>>>
+            3. Reply in ${lang}.
+            4. Use LaTeX for math ($...$).
+            `;
+
+            try {
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        message: text, 
+                        system: systemPrompt, 
+                        history: chatContext.slice(-7) 
+                    })
+                });
+
+                document.getElementById('thinking-box').style.display = 'none';
+
+                if(res.status === 429) return showError("Cloud limit reached. Vivek's clouds will reset in 60s.");
+                
+                const data = await res.json();
+                
+                if(data.choices || data.message) {
+                    let aiMsg = data.choices ? data.choices[0].message.content : data.message;
+                    
+                    if (aiMsg.includes("<<<MEMORY_UPDATE:")) {
+                        const start = aiMsg.indexOf("<<<MEMORY_UPDATE:");
+                        const end = aiMsg.indexOf(">>>", start);
+                        if (end > start) {
+                            const jsonStr = aiMsg.substring(start + 17, end);
+                            try {
+                                const memData = JSON.parse(jsonStr);
+                                if(memData.name) userMemory.name = memData.name;
+                                if(memData.fact) userMemory.facts.push(memData.fact);
+                                saveUserMemoryInLocal();
+                            } catch(e) { console.error("Memory Parse Error", e); }
+                            aiMsg = aiMsg.substring(0, start) + aiMsg.substring(end + 3);
+                        }
+                    }
+
+                    const tokens = Math.ceil(aiMsg.length / 4);
+                    const serverInfo = data.api_index || `Vivek-Node-${Math.floor(Math.random()*5)+1}`;
+                    
+                    typeEffect(aiMsg, serverInfo, tokens);
+                    chatContext.push({role:'assistant', content:aiMsg});
+                    autoSaveSession();
+                } else {
+                     throw new Error("No response");
+                }
+            } catch(e) { 
+                document.getElementById('thinking-box').style.display = 'none';
+                console.error(e);
+                appendMsg('ai', "Connection Failed. try again after 5-10 seconds.... <br>Error: " + e.message); 
+            }
+        }
+
+        function typeEffect(text, apiIdx, tokens) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            
+            msgDiv.innerHTML = marked.parse(text);
+            
+            const footer = document.createElement('div');
+            footer.className = 'msg-footer';
+            footer.innerHTML = `<span>Server: ${apiIdx}</span><span class="token-count">Tokens: ${tokens}</span>`;
+            msgDiv.appendChild(footer);
+
+            processAIResponse(msgDiv);
+            
