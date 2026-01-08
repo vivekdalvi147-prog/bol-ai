@@ -734,4 +734,35 @@
                 div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
                 div.onclick = () => {
                     chatContext = item.messages; currentSessionId = item.id;
-                    
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { 
+            chatContext = []; currentSessionId = Date.now(); 
+            document.getElementById('chat-container').innerHTML = ""; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('open');
+            document.getElementById('overlay').style.display = sb.classList.contains('open') && window.innerWidth <= 768 ? 'block' : 'none';
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error)">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
