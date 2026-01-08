@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>bol-ai | Global Reasoning Engine - Advanced 2.0</title>
+    <title>bol-ai | Global Reasoning Engine - 1.0</title>
     
     <!-- 
         ARCHITECT: VIVEK DALVI
-        SYSTEM: BOL.AI REASONING CORE + DYNAMIC APPS LAYER
-        VERSION: 2.0 (Apps, Real-Time Data, User Memory)
+        SYSTEM: BOL.AI REASONING CORE
+        VERSION: 1.0
     -->
 
     <!-- External Assets -->
@@ -30,12 +30,140 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     
-    <!-- Custom CSS Linked Here -->
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* विवेक दळवी - प्रॉप्रायटरी डिझाइन सिस्टम */
+        :root {
+            --bg: #030508; --sidebar-bg: #050505; --accent: #00f2ff; --secondary: #7000ff;
+            --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15);
+            --text: #ffffff; --text-dim: #94a3b8; --msg-user: #1e293b; --msg-ai: #0f172a; --card-glow: rgba(0, 242, 255, 0.1);
+            --error: #ff3333; --success: #00ff88; --warning: #ffcc00;
+        }
+
+        /* LIGHT THEME */
+        [data-theme="light"] {
+            --bg: #f5f7fa; --sidebar-bg: #ffffff; --accent: #0066ff; --secondary: #6200ea;
+            --glass: rgba(0, 0, 0, 0.05); --border: rgba(0, 0, 0, 0.1); --text: #0f172a;
+            --text-dim: #475569; --msg-user: #e2e8f0; --msg-ai: #ffffff; --card-glow: rgba(0, 102, 255, 0.05);
+        }
+
+        /* Cyber Theme */
+        [data-theme="cyber"] {
+            --bg: #0a0a12; --sidebar-bg: #0f0f1a; --accent: #ff00ff; --secondary: #00ffff;
+            --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 0, 255, 0.3); --text: #00ff00;
+            --text-dim: #00cc00; --msg-user: #1a1a3a; --msg-ai: #050510;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Sidebar */
+        #sidebar { 
+            width: 300px; background: var(--sidebar-bg); border-right: 1px solid var(--border); 
+            display: flex; flex-direction: column; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            z-index: 5000; position: relative;
+            backdrop-filter: none; -webkit-backdrop-filter: none;
+        }
+        @media (max-width: 768px) { 
+            #sidebar { position: fixed; left: -300px; height: 100%; box-shadow: none; } 
+            #sidebar.open { left: 0; box-shadow: 50px 0 100px rgba(0,0,0,0.8); } 
+        }
+
+        .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        .logo { font-size: 1.8rem; font-weight: 800; background: linear-gradient(45deg, var(--accent), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }
+
+        .auth-section { padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .auth-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; font-weight: 700; margin-bottom: 10px; transition: 0.3s; font-size: 0.85rem; }
+        .auth-btn:hover { background: var(--accent); color: #000; }
+        .user-info { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-bottom: 10px; word-break: break-all; }
+        .logout-btn { border-color: var(--error); color: var(--error); }
+        .logout-btn:hover { background: var(--error); color: #fff; }
+
+        .new-chat-btn { margin: 15px; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; background: var(--glass); color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: 600; transition: 0.3s; justify-content: center; font-size: 0.8rem; }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .sidebar-settings { padding: 15px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        .modern-select { 
+            width: 100%; appearance: none; background: var(--glass); border: 1px solid var(--border); 
+            padding: 8px 12px; border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; font-size: 0.8rem; transition: 0.3s;
+        }
+        .modern-select:hover { border-color: var(--accent); }
+
+        .history-item { 
+            padding: 12px 20px; font-size: 0.85rem; color: var(--text-dim); display: flex; align-items: center; justify-content: space-between; 
+            cursor: pointer; transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.03); 
+        }
+        .history-item:hover { background: var(--glass); color: var(--accent); }
+        .delete-btn { color: var(--error); opacity: 0.6; transition: 0.2s; font-size: 0.9rem; }
+        .delete-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        #main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; }
+        header { padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); backdrop-filter: blur(10px); z-index: 100; height: 60px; }
+
+        #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        .msg-wrapper { max-width: 850px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
+        
+        .message { padding: 12px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; position: relative; animation: slideUp 0.3s ease-out; max-width: 90%; word-wrap: break-word; }
+        .ai-msg { background: var(--msg-ai); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .user-msg { background: var(--msg-user); border: 1px solid var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; color: var(--text); }
+        
+        .msg-footer { display: flex; gap: 15px; margin-top: 8px; font-size: 0.7rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 5px; opacity: 0.8; }
+        .token-count { color: var(--accent); font-weight: 700; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        pre { margin: 10px 0; border-radius: 10px; overflow: hidden; background: #080a10 !important; border: 1px solid var(--border); }
+        .code-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px; background: rgba(255,255,255,0.05); border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--accent); font-weight: 700; }
+
+        .thinking-box { display: none; align-items: center; gap: 10px; padding: 8px 20px; background: var(--sidebar-bg); border-radius: 30px; margin: 5px auto; border: 1px solid var(--accent); width: fit-content; font-size: 0.8rem; }
+        .gate-spinner { width: 15px; height: 15px; border: 2px solid var(--accent); border-radius: 50%; border-top-color: transparent; animation: fastSpin 0.5s linear infinite; }
+        @keyframes fastSpin { to { transform: rotate(360deg); } }
+
+        .input-area { padding: 15px 20px; background: var(--bg); border-top: 1px solid var(--border); }
+        .input-box { display: flex; background: var(--sidebar-bg); border: 1px solid var(--border); padding: 8px 15px; border-radius: 16px; gap: 10px; align-items: flex-end; transition: 0.3s; max-width: 850px; margin: 0 auto; }
+        .input-box:focus-within { border-color: var(--accent); }
+        textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; resize: none; min-height: 24px; font-size: 0.95rem; max-height: 150px; padding: 4px 0; }
+        .send-btn { background: var(--accent); color: #000; border: none; width: 35px; height: 35px; border-radius: 10px; cursor: pointer; display: grid; place-items: center; transition: 0.2s; font-size: 0.9rem; }
+        .send-btn:hover { transform: scale(1.1); }
+
+        /* MODALS */
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 4500; backdrop-filter: blur(5px); }
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 90%; max-width: 500px; background: var(--sidebar-bg); border: 1px solid var(--accent); 
+            padding: 30px; border-radius: 20px; z-index: 5000; box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            max-height: 90vh; overflow-y: auto;
+        }
+        .modal h2 { font-size: 1.8rem; color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .modal p { font-size: 0.95rem; line-height: 1.6; color: var(--text-dim); margin-bottom: 20px; }
+        .close-modal-btn { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-dim); }
+
+        /* Auth Form Styles */
+        .auth-form input { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--glass); border: 1px solid var(--border); color: var(--text); border-radius: 8px; outline: none; }
+        .auth-form input:focus { border-color: var(--accent); }
+        .auth-submit { width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; }
+        .auth-toggle { text-align: center; margin-top: 15px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
+
+        /* CUSTOM ALERT/PROMPT STYLES (No Browser Popups) */
+        .modal-btn-group { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+        .modal-btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-confirm { background: var(--accent); color: #000; }
+        .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-cancel:hover { border-color: var(--error); color: var(--error); }
+
+        /* ADMIN / DEVELOPER PANEL STYLES */
+        .admin-form textarea { width: 100%; padding: 10px; background: #000; color: #0f0; font-family: monospace; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; min-height: 100px; }
+        .admin-form label { font-size: 0.8rem; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; }
+
+        #maintenance-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        
+        .katex-display { overflow-x: auto; overflow-y: hidden; }
+        #serverSelectWrapper { display: none; }
+    </style>
 </head>
 <body data-theme="dark">
 
-    <!-- MAINTENANCE SCREEN (Controlled by Firestore) -->
+    <!-- MAINTENANCE SCREEN -->
     <div id="maintenance-screen">
         <i class="fas fa-microchip" style="font-size: 5rem; color: var(--accent); animation: fastSpin 3s linear infinite;"></i>
         <h1 style="font-size: 3rem; color: var(--accent); margin-top: 20px;">SYSTEM UPGRADE</h1>
@@ -43,6 +171,36 @@
     </div>
 
     <div id="overlay" onclick="closeModals()"></div>
+
+    <!-- CUSTOM ALERT MODAL (Replaces window.alert) -->
+    <div class="modal" id="customAlertModal" style="max-width: 400px; text-align: center;">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2 id="alertTitle" style="font-size: 1.5rem; border:none;">Alert</h2>
+        <p id="alertMessage">Message goes here.</p>
+        <button class="auth-submit" onclick="closeModals()">OK</button>
+    </div>
+
+    <!-- CUSTOM PROMPT MODAL (Replaces window.prompt) -->
+    <div class="modal" id="customPromptModal" style="max-width: 400px;">
+        <h2 id="promptTitle" style="font-size: 1.4rem;">Input Required</h2>
+        <div class="auth-form">
+            <input type="text" id="promptInput" placeholder="Enter value..." style="margin-bottom: 0;">
+            <div class="modal-btn-group">
+                <button class="modal-btn btn-cancel" onclick="closeModals()">Cancel</button>
+                <button class="modal-btn btn-confirm" onclick="handlePromptSubmit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRM MODAL (Replaces window.confirm) -->
+    <div class="modal" id="customConfirmModal" style="max-width: 400px; text-align: center;">
+        <h2 style="font-size: 1.4rem; border:none; color: var(--error);">Confirmation</h2>
+        <p id="confirmMessage">Are you sure?</p>
+        <div class="modal-btn-group" style="justify-content: center;">
+            <button class="modal-btn btn-cancel" onclick="closeModals()">No</button>
+            <button class="modal-btn btn-confirm" style="background: var(--error); color: white;" onclick="handleConfirmSubmit()">Yes, Delete</button>
+        </div>
+    </div>
 
     <aside id="sidebar">
         <div class="sidebar-header">
@@ -133,7 +291,7 @@
         <option value="Greek">Greek (Ελληνικά)</option>
         <option value="Swedish">Swedish (Svenska)</option>
         <option value="Norwegian">Norwegian (Norsk)</option>
-        <option value="Danish">Danish (Dansk)</option>
+        <option value="Danish">Danish (Danish)</option>
         <option value="Finnish">Finnish (Suomi)</option>
         <option value="Czech">Czech (Čeština)</option>
         <option value="Hungarian">Hungarian (Magyar)</option>
@@ -159,137 +317,4 @@
     <optgroup label="American Languages">
         <option value="English US">English (US)</option>
         <option value="English UK">English (UK)</option>
-        <option value="Spanish Latin">Spanish (Latin America)</option>
-        <option value="Portuguese Brazil">Portuguese (Brazil)</option>
-        <option value="Quechua">Quechua</option>
-        <option value="Guarani">Guarani</option>
-    </optgroup>
-</select>
-            </div>
-            <div>
-                <div class="sidebar-label">Interface Theme</div>
-                <select onchange="changeTheme(this.value)" class="modern-select">
-                    <option value="dark">Dark Theme</option>
-                    <option value="light">Light Theme</option>
-                    <option value="cyber">Cyber Mode</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="sidebar-footer" style="padding:15px; border-top:1px solid var(--border);">
-            <div class="history-item" onclick="openModal('aboutModal')"><span><i class="fas fa-info-circle"></i> About bol-ai</span></div>
-            <div class="history-item" onclick="window.location.href='https://vivek.com'"><span><i class="fas fa-user-secret"></i> Logic Privacy</span></div>
-            <!-- Click this 5 times for ADMIN PANEL -->
-            <div class="history-item" onclick="handleSecretAdminClick()"><span><i class="fas fa-headset"></i> System Support</span></div>
-        </div>
-    </aside>
-
-    <main id="main-content">
-        <header>
-            <div style="display:flex; align-items:center; gap:15px">
-                <i class="fas fa-bars" style="font-size: 1.5rem; cursor: pointer;" onclick="toggleSidebar()"></i>
-                <div class="logo" style="font-size:1.5rem;">bol-ai</div>
-            </div>
-            <div style="display:flex; gap:15px; align-items:center">
-                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.4rem" onclick="manualSave()" title="Snapshot Logic (Local)"></i>
-            </div>
-        </header>
-
-        <div id="chat-container">
-            <div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 2.0 Pro</h3><p>Developed by <b>Vivek Dalvi</b>. Apps Layer Active. Ask anything...</p></div></div>
-        </div>
-
-        <div class="input-area">
-            <div class="msg-wrapper">
-                <div class="thinking-box" id="thinking-box">
-                    <div class="gate-spinner"></div><span style="color:var(--accent); font-weight:700">VIVEK'S CORE REASONING...</span>
-                </div>
-                <div class="input-box">
-                    <textarea id="userInput" placeholder="Ask anything..." rows="1" oninput="autoExpand(this)"></textarea>
-                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
-                </div>
-                <div style="text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">Created by Vivek Dalvi | © 2026 bol-ai | All Rights Reserved</div>
-            </div>
-        </div>
-    </main>
-
-    <!-- AUTH MODAL -->
-    <div class="modal" id="authModal">
-        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
-        <h2 id="authTitle">Login</h2>
-        <div class="auth-form">
-            <input type="email" id="authEmail" placeholder="Email Address">
-            <input type="password" id="authPass" placeholder="Password">
-            <button class="auth-submit" id="authActionBtn" onclick="handleAuth()">LOGIN</button>
-            <div class="auth-toggle" onclick="toggleAuthMode()" id="authToggleText">New user? Create account</div>
-        </div>
-    </div>
-
-    <!-- ADMIN DEVELOPER MODAL (HIDDEN) -->
-    <div class="modal" id="adminModal" style="max-width: 600px;">
-        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
-        <h2><i class="fas fa-code"></i> Developer Console</h2>
-        <p>Add Micro-Apps (HTML/JS) to Firebase. These trigger on user keywords.</p>
-        <div class="auth-form admin-form">
-            <label>App Name</label>
-            <input type="text" id="appName" placeholder="e.g. Clock App">
-            
-            <label>Trigger Keywords (comma separated)</label>
-            <input type="text" id="appKeywords" placeholder="e.g. time, date, today, clock">
-            
-            <label>JavaScript Code (Must return a string)</label>
-            <textarea id="appCode" placeholder="return 'Current Time: ' + new Date().toLocaleString();"></textarea>
-            
-            <button class="auth-submit" onclick="saveAppToFirestore()">DEPLOY APP TO CLOUD</button>
-            <hr style="border:0; border-top:1px solid var(--border); margin:15px 0;">
-            <div style="font-size:0.8rem; color:var(--accent);">Current Active Apps: <span id="activeAppCount">Loading...</span></div>
-        </div>
-    </div>
-
-    <!-- FORCE LOGIN MODAL -->
-    <div class="modal" id="forceLoginModal" style="z-index: 6000; text-align:center;">
-        <h2 style="color:var(--error)">Session Expired</h2>
-        <p>You have used the guest mode for 5 minutes.</p>
-        <p>Please <b>Login</b> to continue using Vivek Dalvi's Logic Engine.</p>
-        <button class="auth-submit" onclick="openAuthModal('login'); document.getElementById('forceLoginModal').style.display='none';">LOGIN NOW</button>
-    </div>
-
-    <!-- PRO MODALS -->
-    <div class="modal" id="aboutModal">
-        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
-        <h2>About</h2>
-     <p>
-    <strong>bol-ai</strong> is a 
-    <span class="highlight">high-performance reasoning engine</span> 
-    designed by <strong>Vivek Dalvi</strong>, built to deliver 
-    <span class="highlight">fast, accurate, and intelligent</span> responses.
-  </p>
-
-  <p>
-    <strong>Version 2.0</strong> integrates 
-    <span class="badge">Real-Time Dynamic Apps</span> via 
-    <span class="badge">Firebase</span> along with 
-    <span class="badge">Local Memory</span>, enabling 
-    <span class="highlight">personalized and context-aware interactions</span>.
-  </p>
-
-  <p>
-    The platform focuses on 
-    <span class="highlight">speed</span>, 
-    <span class="highlight">reliability</span>, and 
-    <span class="highlight">scalability</span>, ensuring a smooth and intelligent AI experience.
-  </p>
-</section>
-    </div>
-
-    <div class="modal" id="contactModal">
-        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
-        <h2>Support</h2>
-        <p>If you encounter any errors, unexpected behavior, or technical issues while using the bol-ai, please don’t hesitate to message us. Our team will review the issue and get back to you as soon as possible to ensure a smooth experience.</p>
-        <p style="color:var(--accent); font-size: 1.5rem; font-weight: 800; border: 1px dashed var(--accent); padding: 15px; text-align: center; border-radius: 15px;">vcoder7311@gmail.com</p>
-    </div>
-
-    <!-- Custom JavaScript Linked Here -->
-    <script src="script.js"></script>
-</body>
-</html>
+        
