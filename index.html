@@ -726,4 +726,96 @@
         }
 
         function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            container.appendChild(wrap); container.scrollTop = container.scrollHeight;
+        }
+
+        // --- SESSION MANAGMENT ---
+        function autoSaveSession() {
+            if(chatContext.length === 0) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            const idx = history.findIndex(item => item.id === currentSessionId);
+            const first = chatContext.find(m => m.role === 'user');
+            const title = first ? (first.content.substring(0, 20) + "...") : "New Chat";
+            const data = { id: currentSessionId, title: title, messages: chatContext, timestamp: Date.now() };
             
+            if (idx > -1) history[idx] = data; else history.push(data);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function openManualSave() {
+            if(chatContext.length === 0) return customAlert("Chat is empty!");
+            showCustomPopup("Save Session", "Enter a name for this chat:", true, (title) => {
+                const snapshotId = Date.now() + 1; 
+                const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                history.push({ id: snapshotId, title, messages: chatContext });
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                loadHistory();
+                customAlert("Saved successfully!");
+            });
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            showCustomPopup("Delete Chat", "Are you sure you want to wipe this session?", false, () => {
+                let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                history = history.filter(item => item.id !== id);
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                if(id === currentSessionId) startNewChat(); else loadHistory();
+            });
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.sort((a,b) => (b.timestamp || b.id) - (a.timestamp || a.id));
+            history.forEach((item) => {
+                const div = document.createElement('div'); div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages; currentSessionId = item.id;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => appendMsg(m.role==='assistant'?'ai':'user', m.content));
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { 
+            chatContext = []; currentSessionId = Date.now(); 
+            document.getElementById('chat-container').innerHTML = ""; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+
+        // --- CRASH PREVETION: Optimized AutoExpand ---
+        function autoExpand(el) { 
+            el.style.height = 'auto'; 
+            // Cap visual height strictly at 150px
+            const newHeight = Math.min(el.scrollHeight, 150);
+            el.style.height = newHeight + 'px';
+            el.style.overflowY = (el.scrollHeight > 150) ? "scroll" : "hidden";
+        }
+
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('open');
+            document.getElementById('overlay').style.display = sb.classList.contains('open') && window.innerWidth <= 768 ? 'block' : 'none';
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function showError(msg) { document.getElementById('thinking-box').style.display = 'none'; appendMsg('ai', `<span style="color:var(--error)">${msg}</span>`); }
+
+        window.onload = loadHistory;
+    </script>
+</body>
+</html>
