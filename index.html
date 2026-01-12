@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>bol-ai | Global Reasoning Engine 1.0</title>
+    
+    <!-- 
+        ARCHITECT: VIVEK DALVI
+        SYSTEM: BOL.AI REASONING CORE
+        VERSION: 1.0 (Ads, Apps & Announcements Integrated)
+    -->
+
+    <!-- External Assets -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css">
+    
+    <!-- Rendering Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+    
+    <!-- MATH RENDERING (KaTeX) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* विवेक दळवी - प्रॉप्रायटरी डिझाइन सिस्टम */
+        :root {
+            --bg: #030508; --sidebar-bg: #050505; --accent: #00f2ff; --secondary: #7000ff;
+            --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15);
+            --text: #ffffff; --text-dim: #94a3b8; --msg-user: #1e293b; --msg-ai: #0f172a; --card-glow: rgba(0, 242, 255, 0.1);
+            --error: #ff3333; --success: #00ff88; --warning: #ffcc00;
+        }
+
+        [data-theme="light"] {
+            --bg: #f5f7fa; --sidebar-bg: #ffffff; --accent: #0066ff; --secondary: #6200ea;
+            --glass: rgba(0, 0, 0, 0.05); --border: rgba(0, 0, 0, 0.1); --text: #0f172a;
+            --text-dim: #475569; --msg-user: #e2e8f0; --msg-ai: #ffffff; --card-glow: rgba(0, 102, 255, 0.05);
+        }
+
+        [data-theme="cyber"] {
+            --bg: #0a0a12; --sidebar-bg: #0f0f1a; --accent: #ff00ff; --secondary: #00ffff;
+            --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 0, 255, 0.3); --text: #00ff00;
+            --text-dim: #00cc00; --msg-user: #1a1a3a; --msg-ai: #050510;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Sidebar */
+        #sidebar { 
+            width: 300px; background: var(--sidebar-bg); border-right: 1px solid var(--border); 
+            display: flex; flex-direction: column; transition: 0.3s; 
+            z-index: 12000; position: relative;
+        }
+        @media (max-width: 768px) { 
+            #sidebar { position: fixed; left: -300px; height: 100%; box-shadow: none; } 
+            #sidebar.open { left: 0; box-shadow: 50px 0 100px rgba(0,0,0,0.8); } 
+        }
+
+        .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        .logo { font-size: 1.8rem; font-weight: 800; background: linear-gradient(45deg, var(--accent), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }
+
+        .auth-section { padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .auth-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; font-weight: 700; margin-bottom: 10px; transition: 0.3s; font-size: 0.85rem; }
+        .auth-btn:hover { background: var(--accent); color: #000; }
+        .user-info { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-bottom: 10px; word-break: break-all; }
+        .logout-btn { border-color: var(--error); color: var(--error); }
+        .logout-btn:hover { background: var(--error); color: #fff; }
+
+        .new-chat-btn { margin: 15px; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; background: var(--glass); color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: 600; transition: 0.3s; justify-content: center; font-size: 0.8rem; }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .sidebar-settings { padding: 15px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        .modern-select { width: 100%; appearance: none; background: var(--glass); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; font-size: 0.8rem; transition: 0.3s; }
+        .modern-select:hover { border-color: var(--accent); }
+
+        .history-item { padding: 12px 20px; font-size: 0.85rem; color: var(--text-dim); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .history-item:hover { background: var(--glass); color: var(--accent); }
+        .delete-btn { color: var(--error); opacity: 0.6; transition: 0.2s; font-size: 0.9rem; }
+        .delete-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        /* Main Content */
+        #main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; }
+        header { padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); backdrop-filter: blur(10px); z-index: 100; height: 60px; }
+
+        /* Quick Apps Bar */
+        #quick-apps-bar {
+            display: flex; gap: 10px; padding: 10px 20px; background: rgba(0,0,0,0.1); 
+            border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap;
+        }
+        #quick-apps-bar::-webkit-scrollbar { height: 4px; }
+        #quick-apps-bar::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+        
+        .app-shortcut-btn {
+            background: var(--glass); border: 1px solid var(--border); color: var(--text);
+            padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .app-shortcut-btn:hover { background: var(--accent); color: #000; transform: translateY(-2px); }
+        .app-shortcut-btn i { font-size: 0.9rem; }
+
+        /* Chat Layout */
+        #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        .msg-wrapper { max-width: 850px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
+        .message { padding: 12px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.95rem; position: relative; animation: slideUp 0.3s ease-out; max-width: 90%; word-wrap: break-word; }
+        .ai-msg { background: var(--msg-ai); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .user-msg { background: var(--msg-user); border: 1px solid var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; color: var(--text); }
+        .msg-footer { display: flex; gap: 15px; margin-top: 8px; font-size: 0.7rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 5px; opacity: 0.8; }
+        .token-count { color: var(--accent); font-weight: 700; }
+
+        /* AD CONTAINER STYLES (300x100) */
+        .ad-banner-slot {
+            width: 300px; height: 100px; background: rgba(0,0,0,0.3); border: 1px dashed var(--border);
+            margin: 10px 0 20px 0; border-radius: 8px; overflow: hidden; display: flex;
+            justify-content: center; align-items: center; position: relative;
+        }
+        .ad-label { position: absolute; top: 2px; right: 5px; font-size: 8px; color: var(--text-dim); z-index: 10; background:rgba(0,0,0,0.5); padding:2px;}
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        pre { margin: 15px 0; border-radius: 12px; overflow: hidden; background: #080a10 !important; border: 1px solid var(--border); position: relative; }
+        .code-header-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.08); padding: 8px 15px; border-bottom: 1px solid var(--border); }
+        .code-lang { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+        .code-actions { display: flex; gap: 15px; align-items: center; }
+        .code-action-btn { cursor: pointer; color: var(--text-dim); font-size: 0.85rem; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .code-action-btn:hover { color: var(--text); transform: scale(1.1); }
+        code { font-family: 'Courier New', Courier, monospace; }
+
+        .thinking-box { display: none; align-items: center; gap: 10px; padding: 8px 20px; background: var(--sidebar-bg); border-radius: 30px; margin: 5px auto; border: 1px solid var(--accent); width: fit-content; font-size: 0.8rem; }
+        .gate-spinner { width: 15px; height: 15px; border: 2px solid var(--accent); border-radius: 50%; border-top-color: transparent; animation: fastSpin 0.5s linear infinite; }
+        @keyframes fastSpin { to { transform: rotate(360deg); } }
+
+        .input-area { padding: 15px 20px; background: var(--bg); border-top: 1px solid var(--border); }
+        .input-box { display: flex; background: var(--sidebar-bg); border: 1px solid var(--border); padding: 8px 15px; border-radius: 16px; gap: 10px; align-items: flex-end; transition: 0.3s; max-width: 850px; margin: 0 auto; }
+        .input-box:focus-within { border-color: var(--accent); }
+        textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; resize: none; min-height: 24px; font-size: 0.95rem; max-height: 150px !important; overflow-y: auto; padding: 4px 0; }
+        .send-btn { background: var(--accent); color: #000; border: none; width: 35px; height: 35px; border-radius: 10px; cursor: pointer; display: grid; place-items: center; transition: 0.2s; font-size: 0.9rem; }
+        
+        /* Modals */
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9998; backdrop-filter: blur(5px); }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: var(--sidebar-bg); border: 1px solid var(--accent); padding: 30px; border-radius: 20px; z-index: 13000; box-shadow: 0 0 50px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; }
+        
+        .info-modal h2 { font-size: 2.2rem; color: var(--accent); margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 15px; font-weight: 800; }
+        .info-modal p, .info-modal li { font-size: 1.1rem; line-height: 1.8; color: var(--text); margin-bottom: 15px; }
+        .highlight { color: var(--accent); font-weight: bold; }
+        .close-modal-btn { position: absolute; top: 20px; right: 20px; font-size: 2rem; cursor: pointer; color: var(--text-dim); transition:0.2s; }
+        .close-modal-btn:hover { color: var(--error); transform: rotate(90deg); }
+
+        .auth-form input, .admin-form textarea { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--glass); border: 1px solid var(--border); color: var(--text); border-radius: 8px; outline: none; }
+        .auth-form input:focus { border-color: var(--accent); }
+        .auth-submit { width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; }
+        .auth-toggle { text-align: center; margin-top: 15px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
+
+        /* Announcement Card Style */
+        .announce-card { background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 15px; margin-bottom: 15px; border-radius: 12px; }
+        .announce-img { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; display: none; }
+        .announce-title { color: var(--accent); font-weight: 700; margin-bottom: 5px; font-size: 1.1rem; }
+        .announce-text { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 10px; }
+        .announce-link { display: inline-block; padding: 6px 12px; background: var(--accent); color: #000; text-decoration: none; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+
+        .custom-popup-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 14000; backdrop-filter: blur(4px); justify-content: center; align-items: center; }
+        .custom-popup-box { background: var(--sidebar-bg); width: 90%; max-width: 400px; padding: 25px; border-radius: 16px; border: 1px solid var(--accent); box-shadow: 0 10px 40px rgba(0,0,0,0.6); text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .custom-popup-title { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
+        .custom-popup-msg { font-size: 0.95rem; color: var(--text); margin-bottom: 20px; line-height: 1.5; }
+        .custom-popup-input { width: 100%; padding: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; margin-bottom: 20px; outline: none; display: none; }
+        .popup-btns { display: flex; gap: 10px; justify-content: center; }
+        .popup-btn { padding: 8px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; font-size: 0.9rem; }
+        .popup-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+        .popup-confirm { background: var(--accent); color: #000; }
+
+        .admin-form textarea { background: #000; color: #0f0; font-family: monospace; min-height: 100px; }
+        .admin-form label { font-size: 0.8rem; color: var(--accent); font-weight: bold; display: block; margin-bottom: 5px; }
+        #maintenance-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 15000; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .katex-display { overflow-x: auto; overflow-y: hidden; }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- CUSTOM POPUP -->
+    <div id="customPopup" class="custom-popup-overlay">
+        <div class="custom-popup-box">
+            <div id="popupTitle" class="custom-popup-title">Notification</div>
+            <div id="popupMsg" class="custom-popup-msg">Message</div>
+            <input type="text" id="popupInput" class="custom-popup-input" placeholder="Type here...">
+            <div class="popup-btns">
+                <button class="popup-btn popup-cancel" onclick="closeCustomPopup()">Cancel</button>
+                <button class="popup-btn popup-confirm" id="popupActionBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="maintenance-screen">
+        <i class="fas fa-microchip" style="font-size: 5rem; color: var(--accent); animation: fastSpin 3s linear infinite;"></i>
+        <h1 style="font-size: 3rem; color: var(--accent); margin-top: 20px;">SYSTEM UPGRADE</h1>
+        <p style="font-size: 1.2rem; color: var(--text-dim);">Vivek Dalvi's Logic Engine is in maintenance mode.</p>
+    </div>
+
+    <div id="overlay" onclick="closeModals()"></div>
+
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <span class="logo">bol-ai 1.0</span>
+            <i class="fas fa-bars-staggered" style="cursor:pointer; font-size: 1.2rem;" onclick="toggleSidebar()"></i>
+        </div>
+
+        <div class="auth-section" id="authSection">
+            <button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>
+        </div>
+
+        <button class="new-chat-btn" onclick="startNewChat()"><i class="fas fa-plus-circle"></i> <span>Initialize Logic Session</span></button>
+        
+        <!-- Announcement Sidebar Item -->
+        <div class="history-item" onclick="openAnnouncements()" style="border-bottom: 1px solid var(--accent); color: var(--accent);">
+            <span><i class="fas fa-bullhorn"></i> Announcements</span>
+        </div>
+
+        <div id="history-list" style="flex:1; overflow-y:auto;"></div>
+
+        <div class="sidebar-settings">
+            <div>
+                <div class="sidebar-label">Language</div>
+                <select id="langSelect" class="modern-select">
+                    <option value="English">English</option>
+                    <optgroup label="Indian Languages">
+                        <option value="Hindi">Hindi (हिंदी)</option>
+                        <option value="Marathi">Marathi (मराठी)</option>
+                        <option value="Bengali">Bengali (বাংলা)</option>
+                        <option value="Tamil">Tamil (தமிழ்)</option>
+                        <option value="Telugu">Telugu (తెలుగు)</option>
+                        <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                        <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                        <option value="Malayalam">Malayalam (മലയാളം)</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <div class="sidebar-label">Interface Theme</div>
+                <select onchange="changeTheme(this.value)" class="modern-select">
+                    <option value="dark">Dark Theme</option>
+                    <option value="light">Light Theme</option>
+                    <option value="cyber">Cyber Mode</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="sidebar-footer" style="padding:15px; border-top:1px solid var(--border);">
+            <div class="history-item" onclick="openModal('aboutModal')"><span><i class="fas fa-info-circle"></i> About bol-ai</span></div>
+            <div class="history-item" onclick="openModal('privacyModal')"><span><i class="fas fa-user-secret"></i> Logic Privacy</span></div>
+            <div class="history-item" onclick="openModal('contactModal')"><span><i class="fas fa-headset"></i> System Support</span></div>
+            <div class="history-item" onclick="handleSecretAdminClick()" style="opacity:0; pointer-events:none;">Dev</div>
+        </div>
+    </aside>
+
+    <main id="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px">
+                <i class="fas fa-bars" style="font-size: 1.5rem; cursor: pointer;" onclick="toggleSidebar()"></i>
+                <div class="logo" style="font-size:1.5rem;">bol-ai</div>
+            </div>
+            <div style="display:flex; gap:15px; align-items:center">
+                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.4rem" onclick="openManualSave()" title="Snapshot Logic (Local)"></i>
+            </div>
+        </header>
+
+        <!-- APP SHORTCUT BAR -->
+        <div id="quick-apps-bar">
+            <!-- Apps loaded dynamically via JS -->
+        </div>
+
+        <div id="chat-container">
+            <div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 1.0 </h3><p>Developed by <b>Vivek Dalvi</b>. Unlimited Input Enabled. Ask anything...</p></div></div>
+        </div>
+
+        <div class="input-area">
+            <div class="msg-wrapper">
+                <div class="thinking-box" id="thinking-box">
+                    <div class="gate-spinner"></div><span style="color:var(--accent); font-weight:700">VIVEK'S CORE REASONING...</span>
+                </div>
+                <div class="input-box">
+                    <textarea id="userInput" placeholder="Ask anything..." rows="1" oninput="autoExpand(this)"></textarea>
+                    <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">Created by Vivek Dalvi | © 2026 bol-ai | All Rights Reserved</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- AUTH MODAL -->
+    <div class="modal" id="authModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2 id="authTitle" style="color:var(--accent); margin-bottom:15px;">Login</h2>
+        <div class="auth-form">
+            <input type="email" id="authEmail" placeholder="Email Address">
+            <input type="password" id="authPass" placeholder="Password">
+            <button class="auth-submit" id="authActionBtn" onclick="handleAuth()">LOGIN</button>
+            <div class="auth-toggle" onclick="toggleAuthMode()" id="authToggleText">New user? Create account</div>
+        </div>
+    </div>
+
+    <!-- FORCE LOGIN MODAL -->
+    <div class="modal" id="forceLoginModal" style="z-index: 10000; text-align:center;">
+        <h2 style="color:var(--error)">Session Expired</h2>
+        <p>Please <b>Login</b> to continue.</p>
+        <button class="auth-submit" onclick="openAuthModal('login'); document.getElementById('forceLoginModal').style.display='none';">LOGIN NOW</button>
+    </div>
+
+    <!-- ADMIN CONSOLE (APPS + ANNOUNCEMENTS) -->
+    <div class="modal" id="adminModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Developer Console</h2>
+        
+        <h4 style="color:var(--accent); margin-top:10px;">1. Deploy App</h4>
+        <div class="auth-form admin-form">
+            <label>App Name</label>
+            <input type="text" id="appName" placeholder="e.g. IP Tracker">
+            <label>JavaScript Code (Use alert or return string)</label>
+            <textarea id="appCode" placeholder="alert('Working!');"></textarea>
+            <button class="auth-submit" onclick="saveAppToFirestore()">DEPLOY APP</button>
+        </div>
+
+        <h4 style="color:var(--accent); margin-top:20px;">2. Post Announcement</h4>
+        <div class="auth-form admin-form">
+            <label>Title</label>
+            <input type="text" id="announceTitle" placeholder="Update Title">
+            <label>Message</label>
+            <textarea id="announceMsg" placeholder="Details..." style="min-height:60px;"></textarea>
+            <label>Image URL (Optional)</label>
+            <input type="text" id="announceImg" placeholder="https://...">
+            <label>Link URL (Optional)</label>
+            <input type="text" id="announceLink" placeholder="https://...">
+            <button class="auth-submit" onclick="postAnnouncement()">POST ANNOUNCEMENT</button>
+        </div>
+    </div>
+
+    <!-- ANNOUNCEMENT VIEWER MODAL -->
+    <div class="modal info-modal" id="announcementModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Announcements</h2>
+        <div id="announcement-feed">
+            <p>Loading updates...</p>
+        </div>
+    </div>
+
+    <!-- INFO MODALS -->
+    <div class="modal info-modal" id="aboutModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>About bol-ai</h2>
+        <p><strong>bol-ai</strong> is a <span class="highlight">high-performance reasoning engine</span> conceptualized by <strong>Vivek Dalvi</strong>.</p>
+    </div>
+
+    <div class="modal info-modal" id="privacyModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Logic Privacy Protocol</h2>
+        <p>Conversations are stored locally. Ads are displayed securely via local storage protocols.</p>
+    </div>
+
+    <div class="modal info-modal" id="contactModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>System Support</h2>
+        <div style="margin: 30px 0; padding: 20px; border: 2px dashed var(--accent); border-radius: 15px; text-align: center; background: rgba(0,255,255,0.05);">
+            <i class="fas fa-envelope" style="font-size: 2rem; color: var(--accent); margin-bottom: 10px; display: block;"></i>
+            <span style="font-size: 1.5rem; font-weight: 800; color: var(--text);">vcoder7311@gmail.com</span>
+        </div>
+    </div>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); 
+
+        let currentUser = null;
+        let isLoginMode = true;
+        let chatContext = [];
+        let currentSessionId = Date.now();
+        let registeredApps = [];
+        let userMemory = {};
+        
+        // ADMIN ID CHECK
+        const ADMIN_ID = "cGTwNhId5wWznwMnFyYc6PNpOg63";
+
+        // --- AD INJECTION LOGIC (HillTopAds) ---
+        function renderAd(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const adSlot = document.createElement('div');
+            adSlot.className = "ad-banner-slot";
+            adSlot.innerHTML = `<span class="ad-label">ADVERTISEMENT</span>`;
+            
+            // Script logic wrapped to execute dynamically
+            const s = document.createElement('script');
+            s.innerHTML = `
+            (function(jome){
+            var d = document,
+                s = d.createElement('script');
+            s.settings = jome || {};
+            s.src = "\\/\\/stable-skill.com\\/blXOVBs.dvG\\/ld0ZY-WVch\\/ceCmF9cuJZpUblHkJPXTNY\\/3bNrDkYS0fMrjZY\\/tlNIj\\/cD0hNZjtQDy\\/NgwB";
+            s.async = true;
+            s.referrerPolicy = 'no-referrer-when-downgrade';
+            // Insert inside the ad slot we just created
+            var myself = document.getElementById('${containerId}').lastChild;
+            myself.appendChild(s);
+            })({})
+            `;
+            
+            adSlot.appendChild(s);
+            container.appendChild(adSlot);
+        }
+
+        // --- CODE ACTIONS ---
+        window.copyCode = function(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => customAlert("Copied!"));
+        }
+
+        window.downloadCode = function(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `bol-ai-code.txt`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+        }
+
+        // --- CUSTOM POPUP ---
+        function showCustomPopup(title, msg, showInput, callback) {
+            const overlay = document.getElementById('customPopup');
+            document.getElementById('popupTitle').innerText = title;
+            document.getElementById('popupMsg').innerText = msg;
+            const pInput = document.getElementById('popupInput');
+            pInput.style.display = showInput ? 'block' : 'none';
+            pInput.value = "";
+            overlay.style.display = 'flex';
+            if(showInput) pInput.focus();
+
+            const pBtn = document.getElementById('popupActionBtn');
+            const newBtn = pBtn.cloneNode(true);
+            pBtn.parentNode.replaceChild(newBtn, pBtn);
+            
+            newBtn.onclick = function() {
+                const val = pInput.value;
+                if(showInput && !val) return; 
+                closeCustomPopup();
+                if (callback) callback(val);
+            };
+        }
+        function closeCustomPopup() { document.getElementById('customPopup').style.display = 'none'; }
+        function customAlert(msg) { showCustomPopup("Notification", msg, false, null); }
+
+        // --- USER & SYSTEM ---
+        function loadUserMemory() {
+            const savedMem = localStorage.getItem('bol_user_memory');
+            userMemory = savedMem ? JSON.parse(savedMem) : { name: "User", preferences: "", facts: [] };
+        }
+        loadUserMemory();
+
+        // --- LOAD APPS (For Sidebar & Top Bar) ---
+        db.collection('apps').onSnapshot((snapshot) => {
+            registeredApps = [];
+            const bar = document.getElementById('quick-apps-bar');
+            bar.innerHTML = "";
+            snapshot.forEach(doc => {
+                const app = doc.data();
+                registeredApps.push(app);
+                
+                // Add to Quick Bar
+                const btn = document.createElement('button');
+                btn.className = "app-shortcut-btn";
+                btn.innerHTML = `<i class="fas fa-rocket"></i> ${app.name}`;
+                btn.onclick = () => {
+                    try { 
+                        // Execute App Logic
+                        const func = new Function(app.code);
+                        func();
+                    } catch(e) { customAlert("App Error: " + e.message); }
+                };
+                bar.appendChild(btn);
+            });
+        });
+
+        // --- AUTH ---
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) {
+                db.collection('users').doc(user.uid).set({ email: user.email, lastLogin: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            }
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            if (currentUser) {
+                container.innerHTML = `<div class="user-info">${currentUser.email}</div><button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>`;
+            } else {
+                container.innerHTML = `<button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>`;
+            }
+        }
+
+        function openAuthModal(mode) { isLoginMode = (mode === 'login'); renderAuthForm(); openModal('authModal'); }
+        function toggleAuthMode() { isLoginMode = !isLoginMode; renderAuthForm(); }
+        function renderAuthForm() {
+            document.getElementById('authTitle').innerText = isLoginMode ? "Login" : "Sign Up";
+            document.getElementById('authActionBtn').innerText = isLoginMode ? "LOGIN" : "CREATE ACCOUNT";
+            document.getElementById('authToggleText').innerText = isLoginMode ? "New user? Create account" : "Already have an account? Login";
+        }
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            if(!email || !pass) return customAlert("Fill all fields");
+            if(isLoginMode) auth.signInWithEmailAndPassword(email, pass).then(() => closeModals()).catch(e => customAlert(e.message));
+            else auth.createUserWithEmailAndPassword(email, pass).then(() => { customAlert("Created!"); closeModals(); }).catch(e => customAlert(e.message));
+        }
+        function handleLogout() { auth.signOut().then(() => window.location.reload()); }
+
+        // --- ADMIN FUNCTIONS ---
+        let secretClicks = 0;
+        function handleSecretAdminClick() {
+            if(!currentUser || currentUser.uid !== ADMIN_ID) return;
+            secretClicks++;
+            if (secretClicks === 5) { openModal('adminModal'); secretClicks = 0; } 
+        }
+
+        function saveAppToFirestore() {
+            if(currentUser.uid !== ADMIN_ID) return customAlert("Access Denied");
+            const name = document.getElementById('appName').value;
+            const code = document.getElementById('appCode').value;
+            if(!name || !code) return customAlert("Required fields missing");
+            
+            db.collection('apps').add({ name, code, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .then(() => { customAlert("App Deployed!"); closeModals(); });
+        }
+
+        function postAnnouncement() {
+            if(currentUser.uid !== ADMIN_ID) return customAlert("Access Denied");
+            const title = document.getElementById('announceTitle').value;
+            const msg = document.getElementById('announceMsg').value;
+            const img = document.getElementById('announceImg').value;
+            const link = document.getElementById('announceLink').value;
+
+            if(!title || !msg) return customAlert("Title and Message required");
+
+            db.collection('announcements').add({
+                title, message: msg, imageUrl: img, linkUrl: link,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => { customAlert("Announcement Posted!"); closeModals(); });
+        }
+
+        // --- ANNOUNCEMENTS ---
+        function openAnnouncements() {
+            openModal('announcementModal');
+            const feed = document.getElementById('announcement-feed');
+            feed.innerHTML = '<div style="text-align:center"><div class="gate-spinner"></div></div>';
+            
+            db.collection('announcements').orderBy('timestamp', 'desc').get().then(snap => {
+                feed.innerHTML = "";
+                if(snap.empty) { feed.innerHTML = "<p>No announcements yet.</p>"; return; }
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "announce-card";
+                    let imgHTML = data.imageUrl ? `<img src="${data.imageUrl}" class="announce-img" style="display:block">` : '';
+                    let linkHTML = data.linkUrl ? `<br><a href="${data.linkUrl}" target="_blank" class="announce-link">Open Link <i class="fas fa-external-link-alt"></i></a>` : '';
+                    
+                    card.innerHTML = `
+                        ${imgHTML}
+                        <div class="announce-title">${data.title}</div>
+                        <div class="announce-text">${data.message}</div>
+                        ${linkHTML}
+                    `;
+                    feed.appendChild(card);
+                });
+            });
+        }
+
+        // --- CHAT & AD LOGIC ---
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            // Render User Msg
+            appendMsg('user', text);
+            
+            // Save to Context
+            chatContext.push({role:'user', content:text});
+            autoSaveSession(); 
+            
+            input.value = ''; input.style.height = 'auto'; 
+            document.getElementById('thinking-box').style.display = 'flex';
+
+            const lang = document.getElementById('langSelect').value;
+            
+            // System Prompt with Apps context
+            let appContext = registeredApps.map(a => `App: ${a.name}`).join(', ');
+            const systemPrompt = `You are bol-ai. Lang: ${lang}. Apps available: ${appContext}.`;
+
+            try {
+                // Mock API Call (Replace with real backend if available, utilizing generic structure)
+                const res = await fetch("/api/chat", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: text, system: systemPrompt })
+                });
+
+                document.getElementById('thinking-box').style.display = 'none';
+                
+                let aiMsg = "I am bol-ai 1.0. (Connect Backend for Real AI)."; 
+                if(res.ok) {
+                    const data = await res.json();
+                    aiMsg = data.choices ? data.choices[0].message.content : data.message;
+                }
+                
+                // RENDER AI MSG
+                const msgWrapperId = "msg-" + Date.now();
+                typeEffect(aiMsg, msgWrapperId);
+                
+                // APPEND AD AFTER AI RESPONSE
+                setTimeout(() => renderAd(msgWrapperId), 1000);
+
+                chatContext.push({role:'assistant', content:aiMsg, hasAd: true});
+                autoSaveSession();
+
+            } catch(e) {
+                document.getElementById('thinking-box').style.display = 'none';
+                // Fallback response for demo if fetch fails
+                const fallbackId = "msg-" + Date.now();
+                const fallbackMsg = "AI Connection Offline. Showing local logic demo.";
+                typeEffect(fallbackMsg, fallbackId);
+                setTimeout(() => renderAd(fallbackId), 1000);
+                chatContext.push({role:'assistant', content:fallbackMsg, hasAd: true});
+                autoSaveSession();
+            }
+        }
+
+        function typeEffect(text, wrapperId) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); 
+            wrap.className = 'msg-wrapper';
+            wrap.id = wrapperId; // ID used for Ad injection
+            
+            const msgDiv = document.createElement('div'); 
+            msgDiv.className = 'message ai-msg';
+            msgDiv.innerHTML = marked.parse(text);
+            
+            // Highlight Code
+            msgDiv.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+            // Add Copy Buttons
+            msgDiv.querySelectorAll('pre').forEach(pre => {
+                if(!pre.querySelector('.code-header-bar')) {
+                    const h = document.createElement('div'); h.className='code-header-bar';
+                    h.innerHTML='<span class="code-lang">Code</span><div class="code-actions"><div class="code-action-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i></div></div>';
+                    pre.insertBefore(h, pre.firstChild);
+                }
+            });
+
+            wrap.appendChild(msgDiv);
+            container.appendChild(wrap);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${marked.parse(text)}</div>`;
+            container.appendChild(wrap); container.scrollTop = container.scrollHeight;
+        }
+
+        function autoSaveSession() {
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            const idx = history.findIndex(item => item.id === currentSessionId);
+            const first = chatContext.find(m => m.role === 'user');
+            const title = first ? (first.content.substring(0, 20) + "...") : "New Chat";
+            const data = { id: currentSessionId, title: title, messages: chatContext, timestamp: Date.now() };
+            if (idx > -1) history[idx] = data; else history.push(data);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistoryList();
+        }
+
+        function loadHistoryList() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.sort((a,b) => (b.timestamp || b.id) - (a.timestamp || a.id));
+            history.forEach((item) => {
+                const div = document.createElement('div'); div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => loadSession(item);
+                list.appendChild(div);
+            });
+        }
+
+        function loadSession(item) {
+            chatContext = item.messages; currentSessionId = item.id;
+            const container = document.getElementById('chat-container');
+            container.innerHTML = "";
+            
+            // Re-render chat with Ads from memory
+            chatContext.forEach((m, index) => {
+                if(m.role === 'assistant') {
+                    const uniqueId = "hist-" + index + "-" + Date.now();
+                    typeEffect(m.content, uniqueId);
+                    // If it had an ad, re-render it
+                    if(m.hasAd) renderAd(uniqueId);
+                } else {
+                    appendMsg('user', m.content);
+                }
+            });
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            if(id === currentSessionId) startNewChat(); else loadHistoryList();
+        }
+
+        function startNewChat() { 
+            chatContext = []; currentSessionId = Date.now(); 
+            document.getElementById('chat-container').innerHTML = ""; 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 150) + 'px'; }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { document.querySelectorAll('.modal').forEach(e => e.style.display='none'); document.getElementById('overlay').style.display='none'; document.getElementById('sidebar').classList.remove('open'); }
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+
+        window.onload = () => { loadHistoryList(); };
+    </script>
+</body>
+</html>
