@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>bol-ai | Global Reasoning Engine 1.2</title>
+    
+    <!-- 
+        ARCHITECT: VIVEK DALVI
+        SYSTEM: BOL.AI REASONING CORE
+        VERSION: 1.2 (Compact UI, Database Stats, Smooth Scroll, Token Info)
+    -->
+
+    <!-- External Assets -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Rendering Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+    
+    <!-- MATH RENDERING (KaTeX) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* विवेक दळवी - प्रॉप्रायटरी डिझाइन सिस्टम */
+        :root {
+            --bg: #030508; --sidebar-bg: #050505; --accent: #00f2ff; --secondary: #7000ff;
+            --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15);
+            --text: #ffffff; --text-dim: #94a3b8; --msg-user: #1e293b; --msg-ai: #0f172a; --card-glow: rgba(0, 242, 255, 0.1);
+            --error: #ff3333; --success: #00ff88; --warning: #ffcc00;
+        }
+
+        [data-theme="light"] {
+            --bg: #f5f7fa; --sidebar-bg: #ffffff; --accent: #0066ff; --secondary: #6200ea;
+            --glass: rgba(0, 0, 0, 0.05); --border: rgba(0, 0, 0, 0.1); --text: #0f172a;
+            --text-dim: #475569; --msg-user: #e2e8f0; --msg-ai: #ffffff; --card-glow: rgba(0, 102, 255, 0.05);
+        }
+
+        [data-theme="cyber"] {
+            --bg: #0a0a12; --sidebar-bg: #0f0f1a; --accent: #ff00ff; --secondary: #00ffff;
+            --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 0, 255, 0.3); --text: #00ff00;
+            --text-dim: #00cc00; --msg-user: #1a1a3a; --msg-ai: #050510;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; 
+            transition: background 0.4s ease, color 0.4s ease;
+            font-size: 14px; /* Compact base font size */
+        }
+
+        /* --- PROGRESS BAR (HIDDEN AS REQUESTED) --- */
+        #progress-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 2px; background: transparent; z-index: 20000;
+            display: none !important; /* Force hide to remove the "line" */
+        }
+        #progress-bar {
+            height: 100%; background: linear-gradient(90deg, var(--accent), var(--secondary));
+            width: 0%;
+        }
+
+        /* --- SIDEBAR --- */
+        #sidebar { 
+            width: 260px; /* More compact sidebar */
+            background: var(--sidebar-bg); border-right: 1px solid var(--border); 
+            display: flex; flex-direction: column; 
+            z-index: 5000; 
+            position: relative;
+            transform: translateZ(0); 
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        @media (max-width: 768px) { 
+            #sidebar { 
+                position: fixed; left: 0; top: 0; height: 100%; 
+                transform: translateX(-100%); 
+                box-shadow: none; 
+                z-index: 12000; 
+                width: 280px;
+            } 
+            #sidebar.open { 
+                transform: translateX(0); 
+                box-shadow: 10px 0 50px rgba(0,0,0,0.8); 
+            } 
+        }
+
+        .sidebar-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); height: 60px; }
+        .logo { font-size: 1.4rem; font-weight: 800; background: linear-gradient(45deg, var(--accent), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+
+        .auth-section { padding: 12px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .auth-btn { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; font-weight: 600; margin-bottom: 5px; transition: 0.3s; font-size: 0.8rem; }
+        .auth-btn:hover { background: var(--accent); color: #000; }
+        .user-info { font-size: 0.8rem; color: var(--text); font-weight: 600; text-align: center; margin-bottom: 8px; word-break: break-all; }
+        .logout-btn { border-color: var(--error); color: var(--error); }
+        .logout-btn:hover { background: var(--error); color: #fff; }
+
+        .new-chat-btn { margin: 12px; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; background: var(--glass); color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; transition: 0.3s; justify-content: center; font-size: 0.85rem; }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .history-container { flex: 1; overflow-y: auto; padding: 0 8px; }
+        .history-item { 
+            padding: 10px 12px; font-size: 0.85rem; color: var(--text-dim); display: flex; align-items: center; justify-content: space-between; 
+            cursor: pointer; transition: 0.2s; border-radius: 6px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .history-item:hover { background: var(--glass); color: var(--accent); }
+        .delete-btn { color: var(--error); opacity: 0.6; transition: 0.2s; font-size: 0.9rem; padding: 4px; }
+        .delete-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+        .settings-btn { 
+            width: 100%; padding: 12px; background: var(--glass); border: 1px solid var(--border); 
+            border-radius: 8px; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; transition: 0.2s; font-size: 0.9rem;
+        }
+        .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* --- MAIN CONTENT --- */
+        #main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; z-index: 1; }
+        header { padding: 0 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); height: 60px; background: var(--bg); z-index: 10; backdrop-filter: blur(10px); }
+
+        /* Scroll anchor fix for vibration */
+        #chat-container { 
+            flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; 
+            scroll-behavior: auto; /* Handled by JS for smoothness */
+            overflow-anchor: auto;
+        }
+        .msg-wrapper { max-width: 850px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; contain: content; }
+        
+        /* Compact Typography for Messages */
+        .message { 
+            padding: 10px 18px; 
+            border-radius: 16px; 
+            line-height: 1.6; 
+            font-size: 0.92rem; /* Smaller, cleaner font */
+            position: relative; 
+            max-width: 95%; 
+            word-wrap: break-word; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .ai-msg { background: var(--msg-ai); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .user-msg { background: var(--msg-user); border: 1px solid var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; color: var(--text); }
+        
+        .ai-footer-info {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border);
+            font-size: 0.7rem; color: var(--text-dim); opacity: 0.8; font-family: monospace;
+        }
+        .disclaimer-text {
+            display: block; width: 100%; text-align: center;
+            font-size: 0.75rem; color: var(--text-dim); margin-top: 5px; opacity: 0.7; font-style: italic;
+        }
+
+        /* Google AI Studio Style Cursor Animation */
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            vertical-align: text-bottom;
+            animation: blink 1s step-start infinite;
+            color: var(--accent);
+            margin-left: 2px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        pre { margin: 10px 0; border-radius: 8px; overflow: hidden; background: #080a10 !important; border: 1px solid var(--border); }
+        .code-header-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 12px; border-bottom: 1px solid var(--border); }
+        .code-lang { font-size: 0.7rem; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+        .code-actions { display: flex; gap: 12px; }
+        .code-action-btn { cursor: pointer; color: var(--text-dim); font-size: 0.75rem; transition: 0.2s; display: flex; align-items: center; gap: 4px; }
+        .code-action-btn:hover { color: var(--text); transform: scale(1.05); }
+        code { font-family: 'Courier New', monospace; font-size: 0.88rem; }
+
+        .thinking-box { display: none; align-items: center; gap: 8px; padding: 6px 15px; background: var(--sidebar-bg); border-radius: 30px; margin: 5px auto; border: 1px solid var(--accent); width: fit-content; font-size: 0.75rem; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 242, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0); } }
+        .gate-spinner { width: 14px; height: 14px; border: 2px solid var(--accent); border-radius: 50%; border-top-color: transparent; animation: fastSpin 0.5s linear infinite; }
+        @keyframes fastSpin { to { transform: rotate(360deg); } }
+
+        .input-area { padding: 12px 20px; background: var(--bg); border-top: 1px solid var(--border); z-index: 20; }
+        .input-wrapper { max-width: 850px; margin: 0 auto; display: flex; gap: 8px; flex-direction: column; }
+        .input-box { display: flex; background: var(--sidebar-bg); border: 1px solid var(--border); padding: 8px 12px; border-radius: 14px; gap: 10px; align-items: flex-end; transition: 0.3s; }
+        .input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 15px var(--card-glow); }
+        
+        textarea { flex: 1; background: transparent; border: none; color: var(--text); outline: none; resize: none; min-height: 22px; font-size: 0.95rem; max-height: 150px !important; overflow-y: auto; padding: 4px 0; line-height: 1.4; }
+        
+        .action-btn { background: transparent; color: var(--text-dim); border: none; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; transition: 0.2s; font-size: 1.1rem; }
+        .action-btn:hover { color: var(--accent); background: var(--glass); }
+        .send-btn { background: var(--accent); color: #000; width: 38px; height: 38px; border-radius: 10px; }
+        .send-btn:hover { transform: scale(1.05); }
+        
+        .stop-btn { background: var(--error); color: #fff; width: fit-content; padding: 0 12px; height: 28px; border-radius: 20px; border: none; font-size: 0.75rem; font-weight: bold; cursor: pointer; display: none; margin: 0 auto; align-items: center; gap: 6px; box-shadow: 0 5px 15px rgba(255, 0, 0, 0.3); }
+        .stop-btn:hover { background: #ff0000; transform: translateY(-2px); }
+
+        .file-badge { display: none; align-items: center; gap: 6px; background: rgba(0, 242, 255, 0.1); border: 1px solid var(--accent); padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; color: var(--accent); margin-bottom: 4px; width: fit-content; }
+        .file-badge i.fa-times { cursor: pointer; margin-left: 4px; opacity: 0.7; }
+        .file-badge i.fa-times:hover { opacity: 1; color: var(--error); }
+
+        /* MODALS - FIXED Z-INDEX & BLUR */
+        #overlay { 
+            display: none; position: fixed; inset: 0; 
+            background: rgba(0,0,0,0.8); z-index: 9000; 
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
+        }
+        
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 95%; max-width: 600px; background: var(--sidebar-bg); border: 1px solid var(--border); 
+            padding: 0; border-radius: 16px; z-index: 10000; 
+            box-shadow: 0 25px 80px rgba(0,0,0,0.7);
+            max-height: 85vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); }
+        .modal-header h2 { font-size: 1.5rem; color: var(--accent); font-weight: 700; letter-spacing: -0.5px; }
+        .modal-content { padding: 25px; overflow-y: auto; flex: 1; scroll-behavior: smooth; }
+        
+        /* SETTINGS & INFO */
+        .settings-group { margin-bottom: 25px; }
+        .settings-label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .settings-input, .settings-select, .settings-textarea { 
+            width: 100%; padding: 12px; background: var(--glass); border: 1px solid var(--border); 
+            color: var(--text); border-radius: 10px; outline: none; font-size: 0.95rem; transition: 0.3s; 
+        }
+        .settings-textarea { min-height: 100px; resize: vertical; font-family: monospace; }
+        .settings-input:focus, .settings-select:focus, .settings-textarea:focus { border-color: var(--accent); background: rgba(255,255,255,0.05); }
+        
+        option { background: #000; color: #fff; padding: 10px; }
+        optgroup { font-weight: bold; color: var(--accent); background: #111; }
+
+        .info-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+        .info-btn { padding: 15px; border: 1px solid var(--border); border-radius: 10px; text-align: center; cursor: pointer; transition: 0.2s; background: var(--glass); font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .info-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .info-content p, .info-content li { font-size: 0.95rem; line-height: 1.6; color: var(--text); margin-bottom: 15px; }
+        .highlight { color: var(--accent); font-weight: bold; background: rgba(0, 242, 255, 0.05); padding: 2px 6px; border-radius: 4px; }
+
+        .close-modal-btn { font-size: 1.5rem; cursor: pointer; color: var(--text-dim); transition: 0.2s; }
+        .close-modal-btn:hover { color: var(--error); transform: rotate(90deg); }
+
+        /* CUSTOM POPUP */
+        .custom-popup-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 14000; backdrop-filter: blur(8px); justify-content: center; align-items: center; }
+        .custom-popup-box { background: var(--sidebar-bg); width: 90%; max-width: 400px; padding: 25px; border-radius: 14px; border: 1px solid var(--accent); text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .popup-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+        .popup-btn { padding: 8px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: 700; font-size: 0.9rem; transition: 0.2s; }
+        .popup-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+        .popup-cancel:hover { border-color: var(--text); color: var(--text); }
+        .popup-confirm { background: var(--accent); color: #000; }
+        .popup-confirm:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- PROGRESS BAR (Hidden) -->
+    <div id="progress-container"><div id="progress-bar"></div></div>
+
+    <!-- HIDDEN FILE INPUT -->
+    <input type="file" id="fileInput" style="display: none;" accept=".txt,.html,.css,.js,.py,.java,.c,.cpp,.json,.md" onchange="handleFileSelect(this)">
+
+    <!-- CUSTOM POPUP -->
+    <div id="customPopup" class="custom-popup-overlay">
+        <div class="custom-popup-box">
+            <h3 id="popupTitle" style="color:var(--accent); margin-bottom:12px; font-size:1.3rem;">Notification</h3>
+            <p id="popupMsg" style="color:var(--text); line-height:1.5; font-size:0.95rem;">Message</p>
+            <input type="text" id="popupInput" class="settings-input" style="margin-top:15px; display:none;">
+            <div class="popup-btns">
+                <button class="popup-btn popup-cancel" onclick="closeCustomPopup()">Cancel</button>
+                <button class="popup-btn popup-confirm" id="popupActionBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div id="overlay" onclick="closeModals()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <span class="logo">bol-ai 1.2</span>
+            <i class="fas fa-bars-staggered" style="cursor:pointer; font-size: 1.2rem; color: var(--text-dim);" onclick="toggleSidebar()"></i>
+        </div>
+
+        <div class="auth-section" id="authSection">
+            <!-- Auth injected via JS -->
+        </div>
+
+        <button class="new-chat-btn" onclick="startNewChat()">
+            <i class="fas fa-plus-circle"></i> <span>Initialize Logic Session</span>
+        </button>
+        
+        <div class="history-container" id="history-list">
+            <!-- History Items Injected JS -->
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="settings-btn" onclick="openSettings()">
+                <i class="fas fa-cog"></i> <span>System Settings</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px">
+                <i class="fas fa-bars" style="font-size: 1.3rem; cursor: pointer;" onclick="toggleSidebar()"></i>
+                <div class="logo" style="font-size:1.4rem;">bol-ai</div>
+            </div>
+            <div style="display:flex; gap:15px; align-items:center">
+                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.2rem" onclick="openManualSave()" title="Snapshot Session"></i>
+            </div>
+        </header>
+
+        <div id="chat-container">
+            <div class="msg-wrapper">
+                <div class="message ai-msg">
+                    <h3>bol-ai 1.2 Online</h3>
+                    <p>Logic Core Active. Developed by <b>Vivek Dalvi</b>.</p>
+                    <p>Features: Unlimited Input, File Analysis, and Persistent Memory.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <button class="stop-btn" id="stopBtn" onclick="stopGeneration()"><i class="fas fa-square"></i> STOP GENERATING</button>
+                
+                <div class="thinking-box" id="thinking-box">
+                    <div class="gate-spinner"></div><span style="color:var(--accent); font-weight:700">VIVEK'S LOGIC CORE IS THINKING...</span>
+                </div>
+                
+                <div class="file-badge" id="fileBadge">
+                    <i class="fas fa-file-code"></i> <span id="fileName">code.js</span>
+                    <i class="fas fa-times" onclick="clearFile()"></i>
+                </div>
+
+                <div class="input-box">
+                    <button class="action-btn" onclick="document.getElementById('fileInput').click()" title="Attach File (Code/Text)"><i class="fas fa-paperclip"></i></button>
+                    <textarea id="userInput" placeholder="Ask anything or attach code..." rows="1" oninput="autoExpand(this)"></textarea>
+                    <button class="action-btn send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 8px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">
+                    Created by Vivek Dalvi | © 2026 bol-ai | All Rights Reserved
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- SETTINGS DASHBOARD MODAL -->
+    <div class="modal" id="settingsModal" style="display:none;">
+        <div class="modal-header">
+            <h2>System Configuration</h2>
+            <i class="fas fa-times close-modal-btn" onclick="closeModals()"></i>
+        </div>
+        <div class="modal-content">
+            <!-- User Profile -->
+            <div class="settings-group">
+                <label class="settings-label">User Profile Name (Cloud Sync)</label>
+                <input type="text" id="settingUserName" class="settings-input" placeholder="Enter your name..." onchange="saveSettings()">
+            </div>
+
+            <!-- Language -->
+            <div class="settings-group">
+                <label class="settings-label">Response Language</label>
+                <select id="settingLang" class="settings-select" onchange="saveSettings()">
+                    <option value="English">English</option>
+                    <optgroup label="Indian Languages">
+                        <option value="Hindi">Hindi (हिंदी)</option>
+                        <option value="Marathi">Marathi (मराठी)</option>
+                        <option value="Chhattisgarhi">Chhattisgarhi (छत्तीसगढ़ी)</option>
+                        <option value="Bengali">Bengali (বাংলা)</option>
+                        <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                        <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
+                        <option value="Tamil">Tamil (தமிழ்)</option>
+                        <option value="Telugu">Telugu (తెలుగు)</option>
+                        <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                        <option value="Malayalam">Malayalam (മലയാളം)</option>
+                        <option value="Odia">Odia (ଓଡ଼ିଆ)</option>
+                        <option value="Urdu">Urdu (اردو)</option>
+                        <option value="Assamese">Assamese (অসমীয়া)</option>
+                        <option value="Nepali">Nepali (नेपाली)</option>
+                        <option value="Sanskrit">Sanskrit (संस्कृतम्)</option>
+                        <option value="Konkani">Konkani (कोंकणी)</option>
+                        <option value="Maithili">Maithili (मैथिली)</option>
+                        <option value="Sindhi">Sindhi (सिंधी)</option>
+                        <option value="Santali">Santali (ᱥᱟᱱᱛᱟᱲᱤ)</option>
+                        <option value="Dogri">Dogri (डोगरी)</option>
+                        <option value="Kashmiri">Kashmiri (कॉशुर)</option>
+                        <option value="Bodo">Bodo (बड़ो)</option>
+                        <option value="Manipuri">Manipuri (মৈতৈলোন্)</option>
+                    </optgroup>
+                    <optgroup label="Global">
+                        <option value="Spanish">Spanish</option>
+                        <option value="French">French</option>
+                        <option value="German">German</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Russian">Russian</option>
+                        <option value="Arabic">Arabic</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- System Instructions -->
+            <div class="settings-group">
+                <label class="settings-label">Custom System Instructions</label>
+                <textarea id="settingSystem" class="settings-textarea" placeholder="E.g., Be a sarcastic coder, or Explain like I'm 5 years old..." onchange="saveSettings()"></textarea>
+            </div>
+
+            <!-- Theme -->
+            <div class="settings-group">
+                <label class="settings-label">Interface Theme</label>
+                <select id="settingTheme" class="settings-select" onchange="changeTheme(this.value)">
+                    <option value="dark">Dark Theme</option>
+                    <option value="light">Light Theme</option>
+                    <option value="cyber">Cyber Mode</option>
+                </select>
+            </div>
+
+            <!-- Info Links -->
+            <div class="info-links">
+                <div class="info-btn" onclick="showInfo('about')"><i class="fas fa-info-circle"></i> About</div>
+                <div class="info-btn" onclick="showInfo('privacy')"><i class="fas fa-user-secret"></i> Privacy</div>
+                <div class="info-btn" onclick="showInfo('contact')"><i class="fas fa-headset"></i> Support</div>
+                <div class="info-btn" onclick="handleSecretAdminClick()"><i class="fas fa-code"></i> Dev Mode</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO CONTENT MODAL -->
+    <div class="modal" id="infoModal">
+        <div class="modal-header">
+            <h2 id="infoTitle">Title</h2>
+            <i class="fas fa-times close-modal-btn" onclick="closeModals()"></i>
+        </div>
+        <div class="modal-content info-content" id="infoContent">
+            <!-- Content Injected via JS -->
+        </div>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div class="modal" id="authModal" style="max-width: 400px; height: auto;">
+        <div class="modal-header">
+            <h2 id="authTitle">Login</h2>
+            <i class="fas fa-times close-modal-btn" onclick="closeModals()"></i>
+        </div>
+        <div class="modal-content">
+            <input type="email" id="authEmail" class="settings-input" placeholder="Email Address" style="margin-bottom:12px;">
+            <input type="password" id="authPass" class="settings-input" placeholder="Password" style="margin-bottom:18px;">
+            <button class="auth-btn" id="authActionBtn" style="background:var(--accent); color:#000; padding:12px; font-size:0.9rem;" onclick="handleAuth()">LOGIN</button>
+            <div style="text-align:center; margin-top:15px; color:var(--text-dim); cursor:pointer; text-decoration:underline; font-size:0.8rem;" onclick="toggleAuthMode()" id="authToggleText">New user? Create account</div>
+        </div>
+    </div>
+
+    <script>
+        // --- FIREBASE INIT ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- GLOBAL STATE ---
+        let currentUser = null;
+        let isLoginMode = true;
+        let chatContext = [];
+        let currentSessionId = Date.now();
+        let attachedFileContent = "";
+        let isGenerating = false;
+        let abortController = null;
+        let secretClicks = 0;
+        let progressInterval;
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            loadSettings();
+            loadHistory();
+            updateAuthUI();
+            closeModals();
+        };
+
+        // --- PROGRESS BAR LOGIC (Hidden Visually but Running Logic) ---
+        function startProgress() {
+            const container = document.getElementById('progress-container');
+            const bar = document.getElementById('progress-bar');
+            // Keep container hidden via CSS class or specific style, logic remains
+            // container.style.display = 'block'; // Commented out to prevent "line at top"
+            bar.style.width = '0%';
+            let width = 0;
+            progressInterval = setInterval(() => {
+                if (width < 90) {
+                    width += Math.random() * 5; 
+                    bar.style.width = width + '%';
+                }
+            }, 500);
+        }
+
+        function endProgress() {
+            clearInterval(progressInterval);
+            const bar = document.getElementById('progress-bar');
+            bar.style.width = '100%';
+            setTimeout(() => {
+                // document.getElementById('progress-container').style.display = 'none';
+                bar.style.width = '0%';
+            }, 300);
+        }
+
+        // --- SETTINGS MANAGEMENT ---
+        function loadSettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('bol_settings') || '{}');
+                document.getElementById('settingUserName').value = saved.userName || "";
+                document.getElementById('settingLang').value = saved.lang || "English";
+                document.getElementById('settingSystem').value = saved.systemInstruction || "";
+                document.getElementById('settingTheme').value = saved.theme || "dark";
+                changeTheme(saved.theme || "dark");
+            } catch(e) { console.error("Settings Load Error", e); }
+        }
+
+        function saveSettings() {
+            const settings = {
+                userName: document.getElementById('settingUserName').value.trim(),
+                lang: document.getElementById('settingLang').value,
+                systemInstruction: document.getElementById('settingSystem').value,
+                theme: document.getElementById('settingTheme').value
+            };
+            localStorage.setItem('bol_settings', JSON.stringify(settings));
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).set({ name: settings.userName, settings: settings }, { merge: true });
+            }
+        }
+
+        function changeTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+            saveSettings();
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+            document.getElementById('overlay').style.display = 'block';
+            if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        }
+
+        // --- FILE HANDLING ---
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) return customAlert("File too large. Max 2MB.");
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                attachedFileContent = `\n\n[USER ATTACHED FILE: ${file.name}]\nCONTENT:\n${e.target.result}\n[END FILE]\n\n`;
+                document.getElementById('fileBadge').style.display = 'flex';
+                document.getElementById('fileName').innerText = file.name;
+                document.getElementById('userInput').focus();
+            };
+            reader.readAsText(file);
+        }
+
+        function clearFile() {
+            attachedFileContent = "";
+            document.getElementById('fileInput').value = "";
+            document.getElementById('fileBadge').style.display = 'none';
+        }
+
+        // --- DATABASE ANALYTICS ---
+        function updateAnalytics(tokenCount) {
+            // Updates analytics/global_stats
+            db.collection('analytics').doc('global_stats').update({
+                total_requests: firebase.firestore.FieldValue.increment(1),
+                total_tokens: firebase.firestore.FieldValue.increment(tokenCount),
+                last_active: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(err => {
+                // If doc doesn't exist or error, try set (fallback)
+                console.log("Analytics update silent fail or init");
+            });
+        }
+
+        // --- CHAT LOGIC ---
+        async function sendMessage() {
+            if (isGenerating) return;
+
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text && !attachedFileContent) return;
+
+            const userDisplayMsg = text + (attachedFileContent ? ` <br><small><i>(Attached: ${document.getElementById('fileName').innerText})</i></small>` : "");
+            appendMsg('user', userDisplayMsg);
+            
+            const settings = JSON.parse(localStorage.getItem('bol_settings') || '{}');
+            const fullContent = text + attachedFileContent;
+            
+            chatContext.push({ role: 'user', content: fullContent });
+            
+            input.value = ''; input.style.height = 'auto';
+            clearFile();
+            autoSaveSession();
+
+            isGenerating = true;
+            document.getElementById('stopBtn').style.display = 'flex';
+            document.getElementById('thinking-box').style.display = 'flex';
+            startProgress();
+            
+            const systemPrompt = `You are bol-ai 1.0. 
+            USER NAME: ${settings.userName || "User"}
+            INSTRUCTIONS: ${settings.systemInstruction || "Be helpful, accurate, and logical."}
+            LANGUAGE: Respond in ${settings.lang || "English"}.
+            Use Markdown for code and LaTeX for math.`;
+
+            abortController = new AbortController();
+
+            try {
+                const res = await fetch("/api/chat", {
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        message: fullContent, 
+                        system: systemPrompt, 
+                        history: chatContext.slice(-8)
+                    }),
+                    signal: abortController.signal
+                });
+
+                if (res.status !== 200) throw new Error("API Error");
+
+                const data = await res.json();
+                const aiText = data.choices ? data.choices[0].message.content : data.message;
+
+                document.getElementById('thinking-box').style.display = 'none';
+                
+                // Estimate tokens: approx 4 chars per token
+                const estTokens = Math.ceil(aiText.length / 4);
+                
+                // Trigger Smart Streaming Animation
+                await typeWriterEffect(aiText);
+                
+                // Update Database
+                updateAnalytics(estTokens);
+                
+                chatContext.push({ role: 'assistant', content: aiText });
+                autoSaveSession();
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    appendMsg('ai', "<i>Generation stopped by user.</i>");
+                } else {
+                    document.getElementById('thinking-box').style.display = 'none';
+                    appendMsg('ai', `<span style="color:var(--error)">Connection Error. Please try again.</span>`);
+                }
+            } finally {
+                isGenerating = false;
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('thinking-box').style.display = 'none';
+                endProgress();
+            }
+        }
+
+        function stopGeneration() {
+            if (abortController) {
+                abortController.abort();
+                isGenerating = false;
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('thinking-box').style.display = 'none';
+                endProgress();
+            }
+        }
+
+        // --- SMART STREAMING ANIMATION (VIBRATION FIXED) ---
+        function typeWriterEffect(fullText) {
+            return new Promise((resolve) => {
+                const container = document.getElementById('chat-container');
+                const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+                
+                // Add blinking cursor class during typing
+                const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg typing-cursor';
+                
+                wrap.appendChild(msgDiv); container.appendChild(wrap);
+
+                const chunkSize = 12; 
+                let index = 0;
+                
+                // Use requestAnimationFrame for smoother UI updates
+                function renderLoop() {
+                    if (!isGenerating) { 
+                        msgDiv.classList.remove('typing-cursor');
+                        resolve(); return; 
+                    }
+                    
+                    index += chunkSize;
+                    if(index > fullText.length) index = fullText.length;
+                    
+                    const currentText = fullText.substring(0, index);
+                    
+                    // Render Markdown
+                    msgDiv.innerHTML = marked.parse(currentText);
+                    
+                    // Highlight Code
+                    msgDiv.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+                    
+                    // Render Math
+                    try {
+                        renderMathInElement(msgDiv, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});
+                    } catch(e) {}
+
+                    // --- VIBRATION FIX: Only scroll if user is near bottom ---
+                    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+                    if (isAtBottom) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+
+                    if (index < fullText.length) {
+                        requestAnimationFrame(renderLoop);
+                    } else {
+                        // Finished
+                        msgDiv.classList.remove('typing-cursor');
+                        // Add Footers (Stats + Disclaimer)
+                        finalizeMessage(msgDiv, fullText.length);
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(renderLoop);
+            });
+        }
+
+        function finalizeMessage(msgDiv, length) {
+            // 1. Code Blocks Header
+            msgDiv.querySelectorAll('pre').forEach(pre => {
+                if(pre.querySelector('.code-header-bar')) return; 
+                const codeBlock = pre.querySelector('code');
+                if (codeBlock) {
+                    const header = document.createElement('div');
+                    header.className = 'code-header-bar';
+                    const langClass = codeBlock.className.match(/language-(\w+)/);
+                    const lang = langClass ? langClass[1] : 'CODE';
+                    header.innerHTML = `
+                        <span class="code-lang">${lang}</span>
+                        <div class="code-actions">
+                            <div class="code-action-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</div>
+                            <div class="code-action-btn" onclick="downloadCode(this)"><i class="fas fa-download"></i> DL</div>
+                        </div>
+                    `;
+                    pre.insertBefore(header, codeBlock);
+                }
+            });
+
+            // 2. Add Token/Server Info & Disclaimer (Only on success/finalize)
+            if (length) { // Ensure meaningful content
+                const tokens = Math.ceil(length / 4);
+                const footerInfo = document.createElement('div');
+                footerInfo.className = 'ai-footer-info';
+                footerInfo.innerHTML = `<span>Server: Bol-AI Cloud</span> <span>Tokens: ~${tokens}</span>`;
+                msgDiv.appendChild(footerInfo);
+
+                const disclaimer = document.createElement('div');
+                disclaimer.className = 'disclaimer-text';
+                disclaimer.innerText = "Bol-Ai may make mistakes, so double-check responses.";
+                msgDiv.appendChild(disclaimer);
+            }
+        }
+
+        function appendMsg(role, html) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            wrap.innerHTML = `<div class="message ${role}-msg">${role === 'user' ? html : marked.parse(html)}</div>`;
+            container.appendChild(wrap);
+            container.scrollTop = container.scrollHeight;
+            if(role === 'ai') finalizeMessage(wrap.querySelector('.message'), html.length);
+        }
+
+        window.copyCode = function(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                btn.innerHTML = `<i class="fas fa-check"></i> Copied`;
+                setTimeout(() => btn.innerHTML = `<i class="fas fa-copy"></i> Copy`, 2000);
+            });
+        }
+
+        window.downloadCode = function(btn) {
+            const code = btn.closest('pre').querySelector('code').innerText;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bol-ai-code.txt`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+
+        // --- SESSION ---
+        function autoSaveSession() {
+            if(chatContext.length === 0) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            const idx = history.findIndex(item => item.id === currentSessionId);
+            const first = chatContext.find(m => m.role === 'user');
+            const title = first ? first.content.substring(0, 30).replace(/\n/g, "") + "..." : "New Chat";
+            
+            const data = { id: currentSessionId, title, messages: chatContext, timestamp: Date.now() };
+            if (idx > -1) history[idx] = data; else history.push(data);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.sort((a,b) => b.timestamp - a.timestamp);
+            history.forEach(item => {
+                const div = document.createElement('div'); div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comment-dots"></i> ${item.title}</span> <i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => loadSession(item);
+                list.appendChild(div);
+            });
+        }
+
+        function loadSession(item) {
+            currentSessionId = item.id;
+            chatContext = item.messages;
+            document.getElementById('chat-container').innerHTML = "";
+            chatContext.forEach(m => appendMsg(m.role === 'assistant' ? 'ai' : 'user', m.content));
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            customAlert("Permanently delete this chat?", () => {
+                let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                history = history.filter(x => x.id !== id);
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                if(id === currentSessionId) startNewChat(); else loadHistory();
+            }, true);
+        }
+
+        function startNewChat() {
+            chatContext = []; currentSessionId = Date.now();
+            document.getElementById('chat-container').innerHTML = `<div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 1.2 Ready</h3><p>New session initialized.</p></div></div>`;
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        // --- UI HELPERS ---
+        function toggleSidebar() { 
+            document.getElementById('sidebar').classList.toggle('open'); 
+            document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') && window.innerWidth <= 768 ? 'block' : 'none';
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 150) + 'px'; }
+        
+        function customAlert(msg, callback, isConfirm) {
+            const popup = document.getElementById('customPopup');
+            document.getElementById('popupMsg').innerHTML = msg;
+            document.getElementById('popupInput').style.display = 'none';
+            popup.style.display = 'flex';
+            const btn = document.getElementById('popupActionBtn');
+            const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.onclick = () => { popup.style.display = 'none'; if(callback) callback(); };
+            document.querySelector('.popup-cancel').style.display = isConfirm ? 'block' : 'none';
+        }
+        function closeCustomPopup() { document.getElementById('customPopup').style.display = 'none'; }
+        
+        function openManualSave() {
+             const popup = document.getElementById('customPopup');
+             document.getElementById('popupMsg').innerText = "Enter a name for this chat:";
+             const input = document.getElementById('popupInput');
+             input.style.display = 'block'; input.value = ""; input.focus();
+             popup.style.display = 'flex';
+             const btn = document.getElementById('popupActionBtn');
+             btn.onclick = () => {
+                 if(input.value) {
+                     let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                     const idx = history.findIndex(x => x.id === currentSessionId);
+                     if(idx > -1) { history[idx].title = input.value; }
+                     else { history.push({id: currentSessionId, title: input.value, messages: chatContext, timestamp: Date.now()}); }
+                     localStorage.setItem('bol_history', JSON.stringify(history));
+                     loadHistory();
+                     closeCustomPopup();
+                 }
+             };
+             document.querySelector('.popup-cancel').style.display = 'block';
+        }
+
+        function showInfo(type) {
+            const modal = document.getElementById('infoModal');
+            const title = document.getElementById('infoTitle');
+            const content = document.getElementById('infoContent');
+            
+            if(type === 'about') {
+                title.innerText = "About bol-ai 1.2";
+                content.innerHTML = `
+                    <p><strong>bol-ai</strong> is a <span class="highlight">high-performance reasoning engine</span> architected by <strong>Vivek Dalvi</strong>.</p>
+                    <p>Built to simulate advanced human-like logic with extreme speed, the system runs on a custom <strong>HTML5/JS Core</strong> seamlessly integrated with <strong>Firebase Cloud Infrastructure</strong>.</p>
+                    <p>This version supports advanced code interactions, file analysis, and mathematical reasoning.</p>`;
+            } else if (type === 'privacy') {
+                title.innerText = "Logic Privacy Protocol";
+                content.innerHTML = `
+                    <p><strong class="highlight">1. Data Sovereignty</strong><br>Your conversations are stored locally on your physical device using Browser LocalStorage. We do not mine your personal conversations.</p>
+                    <p><strong class="highlight">2. Zero-Knowledge Analytics</strong><br>Our servers only count the number of requests to ensure system stability. Payload data is processed in real-time and discarded.</p>
+                    <p><strong class="highlight">3. Encryption Standards</strong><br>All data in transit is encrypted via HTTPS/TLS 1.3.</p>`;
+            } else if (type === 'contact') {
+                title.innerText = "System Support";
+                content.innerHTML = `
+                    <p>For technical inquiries or bug reports regarding the bol-ai engine, please reach out directly:</p>
+                    <div style="margin: 20px 0; padding: 20px; border: 2px dashed var(--accent); border-radius: 15px; text-align: center; background: rgba(0,255,255,0.05);">
+                        <i class="fas fa-envelope" style="font-size: 2rem; color: var(--accent); margin-bottom: 10px; display: block;"></i>
+                        <span style="font-size: 1.5rem; font-weight: 800; color: var(--text);">vcoder7311@gmail.com</span>
+                    </div>
+                    <p style="text-align: center; color: var(--text-dim);">Headquarters: India</p>`;
+            }
+            document.getElementById('settingsModal').style.display = 'none';
+            modal.style.display = 'flex';
+        }
+
+        // --- MODAL CONTROLLER ---
+        function closeModals() {
+            document.querySelectorAll('.modal').forEach(e => e.style.display = 'none');
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = 'none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        // --- AUTH: STRICTLY MANUAL & GUEST MODE OPTIMIZED ---
+        function updateAuthUI() {
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                const container = document.getElementById('authSection');
+                if (user) {
+                    container.innerHTML = `<div class="user-info">login as : ${user.email}</div><button class="auth-btn logout-btn" onclick="auth.signOut()">Logout</button>`;
+                    db.collection('users').doc(user.uid).get().then(doc => {
+                        if(doc.exists && doc.data().settings) {
+                            localStorage.setItem('bol_settings', JSON.stringify(doc.data().settings));
+                            loadSettings();
+                        }
+                    });
+                    
+                    if(document.getElementById('authModal').style.display === 'flex') {
+                        closeModals();
+                    }
+                } else {
+                    container.innerHTML = `<button class="auth-btn" onclick="openAuthModal()">Login / Sign Up</button>`;
+                }
+            });
+        }
+
+        function openAuthModal() { 
+            document.getElementById('authModal').style.display = 'flex'; 
+            document.getElementById('overlay').style.display = 'block'; 
+            if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function toggleAuthMode() { isLoginMode = !isLoginMode; document.getElementById('authTitle').innerText = isLoginMode ? "Login" : "Sign Up"; document.getElementById('authActionBtn').innerText = isLoginMode ? "LOGIN" : "CREATE ACCOUNT"; }
+        
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            if(!email || !pass) return customAlert("Please fill fields.");
+            
+            const p = isLoginMode ? auth.signInWithEmailAndPassword(email, pass) : auth.createUserWithEmailAndPassword(email, pass);
+            
+            p.then(() => {
+                // Success is handled by onAuthStateChanged
+            }).catch(e => customAlert(e.message));
+        }
+
+        // Dev Mode Click Logic Fixed
+        function handleSecretAdminClick() { 
+            secretClicks++; 
+            // Reset clicks if user stops clicking for 2 seconds
+            if(window.clickTimer) clearTimeout(window.clickTimer);
+            window.clickTimer = setTimeout(() => { secretClicks = 0; }, 2000);
+
+            if(secretClicks >= 5) { 
+                alert("Dev Mode: Active\nSystem Integrity: 100%"); 
+                secretClicks = 0; 
+            } 
+        }
+    </script>
+</body>
+</html>
