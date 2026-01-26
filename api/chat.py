@@ -6,6 +6,7 @@ from datetime import datetime
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        # 1. Input parsing
         content_length = int(self.headers['Content-Length'])
         post_data = json.loads(self.rfile.read(content_length))
         
@@ -13,6 +14,7 @@ class handler(BaseHTTPRequestHandler):
         system_prompt = post_data.get('system')
         history = post_data.get('history', [])
 
+        # 2. Key Rotation Logic (Firebase)
         all_keys = os.environ.get("MY_API_KEYS", "").split(",")
         FIREBASE_DB = "https://bol-ai-d94f4-default-rtdb.firebaseio.com"
         
@@ -37,15 +39,25 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Exhausted"}).encode())
             return
 
+        # 3. Message Construction
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(history)
         messages.append({"role": "user", "content": user_msg})
 
         try:
+            # 4. API Call (Updated Headers & Model)
             ai_res = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {selected_key}", "Content-Type": "application/json"},
-                data=json.dumps({"model": "xiaomi/mimo-v2-flash:free", "messages": messages})
+                headers={
+                    "Authorization": f"Bearer {selected_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://bol-ai.vercel.app", # Aapka site URL
+                    "X-Title": "Bol AI",                         # Site Title
+                },
+                data=json.dumps({
+                    "model": "deepseek/deepseek-r1-0528:free", # DeepSeek R1 Model
+                    "messages": messages
+                })
             )
             data = ai_res.json()
             data["api_index"] = selected_index
