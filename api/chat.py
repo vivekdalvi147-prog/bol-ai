@@ -6,18 +6,16 @@ from datetime import datetime
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        # 1. Input parsing
+        # 1. Input parsing (Same as before)
         content_length = int(self.headers['Content-Length'])
         post_data = json.loads(self.rfile.read(content_length))
         
         user_msg = post_data.get('message')
-        # New: Check agar request mein image URL hai
-        image_url = post_data.get('image') 
-        
         system_prompt = post_data.get('system')
-        history = post_data.get('history', [])
+        # Frontend se history me "reasoning_details" aa raha hoga to ye use handle kar lega automatically
+        history = post_data.get('history', []) 
 
-        # 2. Key Rotation Logic (Firebase) - SAME AS BEFORE
+        # 2. Key Rotation Logic (Firebase) - (Same as before)
         all_keys = os.environ.get("MY_API_KEYS", "").split(",")
         FIREBASE_DB = "https://bol-ai-d94f4-default-rtdb.firebaseio.com"
         
@@ -42,31 +40,13 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Exhausted"}).encode())
             return
 
-        # 3. Message Construction (Updated for Image/Multimodal)
+        # 3. Message Construction
         messages = [{"role": "system", "content": system_prompt}]
-        messages.extend(history)
-
-        # Logic: Agar image hai to content array banega, nahi to normal text
-        if image_url:
-            user_content = [
-                {
-                    "type": "text",
-                    "text": user_msg
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": image_url
-                    }
-                }
-            ]
-            messages.append({"role": "user", "content": user_content})
-        else:
-            # Sirf text hone par normal string
-            messages.append({"role": "user", "content": user_msg})
+        messages.extend(history) # Agar history me reasoning_details hai, to wo yahan jud jayega
+        messages.append({"role": "user", "content": user_msg})
 
         try:
-            # 4. API Call (Updated Model)
+            # 4. API Call (Updated Model & Added Reasoning)
             ai_res = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
@@ -76,8 +56,11 @@ class handler(BaseHTTPRequestHandler):
                     "X-Title": "Bol AI",                         
                 },
                 data=json.dumps({
-                    "model": "google/gemma-3-27b-it:free", # Updated Model Name
-                    "messages": messages
+                    # Model change kiya gaya hai snippet ke mutabik
+                    "model": "nvidia/nemotron-3-nano-30b-a3b:free", 
+                    "messages": messages,
+                    # Reasoning logic add kiya gaya hai
+                    "reasoning": {"enabled": True} 
                 })
             )
             data = ai_res.json()
