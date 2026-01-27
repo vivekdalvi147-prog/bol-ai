@@ -10,9 +10,11 @@ class handler(BaseHTTPRequestHandler):
         content_length = int(self.headers['Content-Length'])
         post_data = json.loads(self.rfile.read(content_length))
         
-        user_msg = post_data.get('message', '') # Default to empty string if missing
-        image_url = post_data.get('image_url')  # New field for Image URL
-        system_prompt = post_data.get('system', 'You are a helpful assistant.')
+        user_msg = post_data.get('message')
+        # New: Check agar request mein image URL hai
+        image_url = post_data.get('image') 
+        
+        system_prompt = post_data.get('system')
         history = post_data.get('history', [])
 
         # 2. Key Rotation Logic (Firebase) - SAME AS BEFORE
@@ -25,11 +27,8 @@ class handler(BaseHTTPRequestHandler):
 
         for i, key in enumerate(all_keys):
             usage_ref = f"{FIREBASE_DB}/api_usage/key_{i}/{current_minute}.json"
-            try:
-                usage_res = requests.get(usage_ref).json()
-                count = usage_res if usage_res is not None else 0
-            except:
-                count = 0
+            usage_res = requests.get(usage_ref).json()
+            count = usage_res if usage_res is not None else 0
             
             if count < 5:
                 selected_key = key
@@ -43,13 +42,12 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Exhausted"}).encode())
             return
 
-        # 3. Message Construction (Updated for Multimodal/Image)
+        # 3. Message Construction (Updated for Image/Multimodal)
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(history)
 
-        # Check if an image is provided
+        # Logic: Agar image hai to content array banega, nahi to normal text
         if image_url:
-            # Multimodal format
             user_content = [
                 {
                     "type": "text",
@@ -64,31 +62,24 @@ class handler(BaseHTTPRequestHandler):
             ]
             messages.append({"role": "user", "content": user_content})
         else:
-            # Standard text format
+            # Sirf text hone par normal string
             messages.append({"role": "user", "content": user_msg})
 
         try:
-            # 4. API Call (Updated Headers & Model)
+            # 4. API Call (Updated Model)
             ai_res = requests.post(
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {selected_key}",
-                    "Content-Type": "application/json"
-                    # Removed HTTP-Referer and X-Title as requested
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://bol-ai.vercel.app", 
+                    "X-Title": "Bol AI",                         
                 },
                 data=json.dumps({
-                    "model": "google/gemma-3-27b-it:free", # Updated Model
+                    "model": "google/gemma-3-27b-it:free", # Updated Model Name
                     "messages": messages
                 })
             )
-            
-            # Handle non-200 API errors
-            if ai_res.status_code != 200:
-                self.send_response(ai_res.status_code)
-                self.end_headers()
-                self.wfile.write(ai_res.content)
-                return
-
             data = ai_res.json()
             data["api_index"] = selected_index
 
@@ -96,8 +87,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(data).encode())
-            
         except Exception as e:
             self.send_response(500)
             self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            self.wfile.write(str(e).encode())
