@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>bol-ai | Global Reasoning Engine (Pro)</title>
+    
+    <!-- 
+        ARCHITECT: VIVEK DALVI
+        SYSTEM: BOL.AI REASONING CORE
+        VERSION: 1.0 
+    -->
+
+    <!-- External Assets -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Rendering Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+    
+    <!-- MATH RENDERING (KaTeX) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* विवेक दळवी - प्रॉप्रायटरी डिझाइन सिस्टम */
+        :root {
+            --bg: #030508; --sidebar-bg: #050505; --accent: #00f2ff; --secondary: #7000ff;
+            --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.15);
+            --text: #ffffff; --text-dim: #94a3b8; --msg-user: #1e293b; --msg-ai: #0f172a; --card-glow: rgba(0, 242, 255, 0.1);
+            --error: #ff3333; --success: #00ff88; --warning: #ffcc00;
+        }
+
+        [data-theme="light"] {
+            --bg: #f5f7fa; --sidebar-bg: #ffffff; --accent: #0066ff; --secondary: #6200ea;
+            --glass: rgba(0, 0, 0, 0.05); --border: rgba(0, 0, 0, 0.1); --text: #0f172a;
+            --text-dim: #475569; --msg-user: #e2e8f0; --msg-ai: #ffffff; --card-glow: rgba(0, 102, 255, 0.05);
+        }
+
+        [data-theme="cyber"] {
+            --bg: #0a0a12; --sidebar-bg: #0f0f1a; --accent: #ff00ff; --secondary: #00ffff;
+            --glass: rgba(255, 255, 255, 0.08); --border: rgba(255, 0, 255, 0.3); --text: #00ff00;
+            --text-dim: #00cc00; --msg-user: #1a1a3a; --msg-ai: #050510;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; }
+        body { background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        #sidebar { 
+            width: 300px; background: var(--sidebar-bg); border-right: 1px solid var(--border); 
+            display: flex; flex-direction: column; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            z-index: 12000; position: relative;
+            transform: translateZ(0); -webkit-transform: translateZ(0);
+        }
+        @media (max-width: 768px) { 
+            #sidebar { position: fixed; left: -300px; height: 100%; box-shadow: none; } 
+            #sidebar.open { left: 0; box-shadow: 50px 0 100px rgba(0,0,0,0.8); } 
+        }
+
+        .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        .logo { font-size: 1.8rem; font-weight: 800; background: linear-gradient(45deg, var(--accent), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }
+
+        .auth-section { padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .auth-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; font-weight: 700; margin-bottom: 10px; transition: 0.3s; font-size: 0.85rem; }
+        .auth-btn:hover { background: var(--accent); color: #000; }
+        .user-info { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-bottom: 10px; word-break: break-all; }
+        .logout-btn { border-color: var(--error); color: var(--error); }
+        .logout-btn:hover { background: var(--error); color: #fff; }
+
+        .new-chat-btn { margin: 15px; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; background: var(--glass); color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: 600; transition: 0.3s; justify-content: center; font-size: 0.8rem; }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        #history-list { flex:1; overflow-y:auto; }
+        .history-item { 
+            padding: 12px 20px; font-size: 0.85rem; color: var(--text-dim); display: flex; align-items: center; justify-content: space-between; 
+            cursor: pointer; transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.03); 
+        }
+        .history-item:hover { background: var(--glass); color: var(--accent); }
+        .delete-btn { color: var(--error); opacity: 0.6; transition: 0.2s; font-size: 0.9rem; }
+        .delete-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        #main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; width: 100%; }
+        header { padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 100; height: 60px; }
+
+        #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        .msg-wrapper { max-width: 850px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; }
+        
+        .message { padding: 12px 18px; border-radius: 18px; line-height: 1.6; font-size: 0.9rem; position: relative; animation: slideUp 0.3s ease-out; max-width: 90%; word-wrap: break-word; }
+        .ai-msg { background: var(--msg-ai); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .user-msg { background: var(--msg-user); border: 1px solid var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; color: var(--text); }
+        
+        .msg-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 8px; opacity: 0.8; }
+        .token-count { color: var(--accent); font-weight: 700; }
+        .disclaimer { font-style: italic; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        pre { 
+            margin: 15px 0; border-radius: 12px; overflow: hidden; 
+            background: #080a10 !important; border: 1px solid var(--border); 
+            position: relative;
+        }
+        
+        .code-header-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.08); padding: 8px 15px; border-bottom: 1px solid var(--border); }
+        .code-lang { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+        .code-actions { display: flex; gap: 15px; align-items: center; }
+        .code-action-btn { cursor: pointer; color: var(--text-dim); font-size: 0.85rem; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .code-action-btn:hover { color: var(--text); transform: scale(1.1); }
+        .code-action-btn i { font-size: 0.9rem; }
+        code { font-family: 'Courier New', Courier, monospace; }
+
+        .thinking-box { display: none; align-items: center; gap: 12px; padding: 8px 20px; background: var(--sidebar-bg); border-radius: 30px; margin: 5px auto; border: 1px solid var(--accent); width: fit-content; font-size: 0.8rem; }
+        .pulsing-dots { display: flex; gap: 5px; }
+        .pulsing-dots span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 1.4s infinite ease-in-out both; }
+        .pulsing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .pulsing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes pulse { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+
+        .input-area { padding: 15px 20px; background: var(--bg); border-top: 1px solid var(--border); }
+        
+        /* UPDATED: Enhanced Input Box Styling (Bigger/Better) */
+        .input-box { 
+            display: flex; 
+            background: var(--sidebar-bg); 
+            border: 1px solid var(--border); 
+            padding: 10px 10px 10px 20px; /* Increased Padding */
+            border-radius: 20px; /* Increased Radius */
+            gap: 12px; 
+            align-items: flex-end; 
+            transition: 0.3s; 
+            max-width: 850px; 
+            margin: 0 auto; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 15px var(--card-glow); }
+        
+        textarea { 
+            flex: 1; background: transparent; border: none; color: var(--text); outline: none; 
+            resize: none; 
+            min-height: 50px; /* Increased Height */
+            font-size: 1rem; /* Slightly larger text */
+            max-height: 250px !important; /* Allow more expansion */
+            overflow-y: auto; padding: 10px 0; 
+            line-height: 1.5;
+        }
+        
+        .input-btn { background: transparent; color: var(--text-dim); border: none; width: 45px; height: 45px; border-radius: 12px; cursor: pointer; display: grid; place-items: center; transition: 0.2s; font-size: 1.1rem; }
+        .input-btn:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
+        
+        .send-btn { background: var(--accent); color: #000; transition: all 0.3s ease; }
+        .send-btn:hover { transform: scale(1.05); color: #000; box-shadow: 0 0 10px var(--accent); }
+        
+        /* Stop Button State */
+        .send-btn.stopping { background: var(--error); color: #fff; animation: pulseRed 2s infinite; }
+        .send-btn.stopping:hover { box-shadow: 0 0 10px var(--error); }
+
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 51, 51, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0); } }
+
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9998; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 90%; max-width: 600px; background: var(--sidebar-bg); border: 1px solid var(--accent); 
+            padding: 30px; border-radius: 20px; z-index: 13000; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            max-height: 85vh; overflow-y: auto;
+        }
+        
+        .info-modal h2 { font-size: 2.2rem; color: var(--accent); margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 15px; font-weight: 800; }
+        .info-modal p, .info-modal li { font-size: 1.1rem; line-height: 1.8; color: var(--text); margin-bottom: 15px; }
+        .highlight { color: var(--accent); font-weight: bold; }
+        
+        .close-modal-btn { position: absolute; top: 20px; right: 20px; font-size: 2rem; cursor: pointer; color: var(--text-dim); transition:0.2s; }
+        .close-modal-btn:hover { color: var(--error); transform: rotate(90deg); }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; }
+        .form-group input, .form-group textarea {
+            width: 100%; padding: 12px; background: var(--glass); border: 1px solid var(--border); color: var(--text); border-radius: 8px; outline: none; font-size: 0.9rem;
+        }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+        .form-submit-btn { width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; }
+        .auth-toggle { text-align: center; margin-top: 15px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
+
+        .custom-popup-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 14000; backdrop-filter: blur(4px); justify-content: center; align-items: center; }
+        .custom-popup-box { background: var(--sidebar-bg); width: 90%; max-width: 400px; padding: 25px; border-radius: 16px; border: 1px solid var(--accent); box-shadow: 0 10px 40px rgba(0,0,0,0.6); text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .custom-popup-title { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
+        .custom-popup-msg { font-size: 0.95rem; color: var(--text); margin-bottom: 20px; line-height: 1.5; }
+        .custom-popup-input { width: 100%; padding: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; margin-bottom: 20px; outline: none; display: none; }
+        .custom-popup-input:focus { border-color: var(--accent); }
+        .popup-btns { display: flex; gap: 10px; justify-content: center; }
+        .popup-btn { padding: 8px 20px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; font-size: 0.9rem; }
+        .popup-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+        .popup-confirm { background: var(--accent); color: #000; }
+
+        #maintenance-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 15000; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        
+        .katex-display { overflow-x: auto; overflow-y: hidden; }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- POPUP COMPONENTS -->
+    <div id="customPopup" class="custom-popup-overlay">
+        <div class="custom-popup-box">
+            <div id="popupTitle" class="custom-popup-title">Notification</div>
+            <div id="popupMsg" class="custom-popup-msg">Message goes here</div>
+            <input type="text" id="popupInput" class="custom-popup-input" placeholder="Type here...">
+            <div class="popup-btns">
+                <button class="popup-btn popup-cancel" onclick="closeCustomPopup()">Cancel</button>
+                <button class="popup-btn popup-confirm" id="popupActionBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="maintenance-screen">
+        <i class="fas fa-microchip" style="font-size: 5rem; color: var(--accent);"></i>
+        <h1 style="font-size: 3rem; color: var(--accent); margin-top: 20px;">SYSTEM UPGRADE</h1>
+        <p style="font-size: 1.2rem; color: var(--text-dim);">Vivek Dalvi's Logic Engine is in maintenance mode.</p>
+    </div>
+
+    <div id="overlay" onclick="closeModals()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <span class="logo">bol-ai 1.0</span>
+            <i class="fas fa-times" style="cursor:pointer; font-size: 1.5rem;" onclick="toggleSidebar()"></i>
+        </div>
+
+        <div class="auth-section" id="authSection">
+            <button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>
+        </div>
+
+        <button class="new-chat-btn" onclick="startNewChat()"><i class="fas fa-plus-circle"></i> <span>Initialize Logic Session</span></button>
+        
+        <div id="history-list"></div>
+
+        <div class="sidebar-footer" style="padding:15px; border-top:1px solid var(--border);">
+            <div class="history-item" onclick="openModal('aboutModal')"><span><i class="fas fa-info-circle"></i> About bol-ai</span></div>
+            <div class="history-item" onclick="openModal('privacyModal')"><span><i class="fas fa-user-secret"></i> Logic Privacy</span></div>
+            <div class="history-item" onclick="openModal('contactModal')"><span><i class="fas fa-headset"></i> System Support</span></div>
+            <div class="history-item" onclick="handleSecretAdminClick()" style="opacity:0; pointer-events:none;">Dev</div>
+        </div>
+    </aside>
+
+    <!-- MAIN INTERFACE -->
+    <main id="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px">
+                <i class="fas fa-bars" style="font-size: 1.5rem; cursor: pointer;" onclick="toggleSidebar()"></i>
+                <div class="logo" style="font-size:1.5rem;">bol-ai</div>
+            </div>
+            <div style="display:flex; gap:20px; align-items:center">
+                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.4rem" onclick="openManualSave()" title="Snapshot Logic (Local)"></i>
+                <i class="fas fa-cog" style="cursor:pointer; color:var(--accent); font-size:1.4rem" onclick="openModal('settingsModal')" title="Settings"></i>
+            </div>
+        </header>
+
+        <div id="chat-container">
+            <div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 1.0 </h3><p>Engine Upgrade Complete by <b>Vivek Dalvi</b>.Ask anything...</p></div></div>
+        </div>
+
+        <div class="input-area">
+            <div class="msg-wrapper">
+                <div class="thinking-box" id="thinking-box">
+                     <div class="pulsing-dots"><span></span><span></span><span></span></div>
+                    <span style="color:var(--accent); font-weight:700">VIVEK'S CORE REASONING...</span>
+                </div>
+                
+                <!-- Input Box with Bigger "Rundi" (Height/Padding) -->
+                <div class="input-box">
+                    <!-- Accept attribute added for filter, JS validation also present -->
+                    <input type="file" id="fileInput" style="display: none;" accept=".c,.cpp,.txt,.html,.css,.js,.py,.java,.kts,.kt,.xml,.json,.md,.sql" onchange="handleFileUpload(event)">
+                    <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Upload Code/Text File"><i class="fas fa-paperclip"></i></button>
+                    
+                    <textarea id="userInput" placeholder="Ask anything..." rows="1" oninput="autoExpand(this)" onkeydown="checkEnter(event)"></textarea>
+                    
+                    <!-- Send Button acts as Stop Button dynamically -->
+                    <button class="input-btn send-btn" id="sendActionBtn" onclick="handleSendClick()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">Created by Vivek Dalvi | © 2026 bol-ai | All Rights Reserved</div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- MODALS -->
+    <div class="modal" id="authModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2 id="authTitle" style="color:var(--accent); margin-bottom:15px;">Login</h2>
+        <div class="form-group">
+            <input type="email" id="authEmail" placeholder="Email Address">
+        </div>
+        <div class="form-group">
+            <input type="password" id="authPass" placeholder="Password">
+        </div>
+        <button class="form-submit-btn" id="authActionBtn" onclick="handleAuth()">LOGIN</button>
+        <div class="auth-toggle" onclick="toggleAuthMode()" id="authToggleText">New user? Create account</div>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2 style="color:var(--accent); margin-bottom:15px;">Settings</h2>
+        <div class="form-group">
+            <label for="userName">Your Name (for AI to remember)</label>
+            <input type="text" id="userName" placeholder="Enter your name...">
+        </div>
+        <div class="form-group">
+            <label for="systemInstructions">Custom System Instructions</label>
+            <textarea id="systemInstructions" placeholder="e.g., Always reply in a professional tone."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Language</label>
+             <select id="langSelect" class="form-group" style="width:100%; padding: 12px; appearance: none; background: var(--glass); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; transition: 0.3s; font-size: 0.9rem;">
+                <option value="English">English</option>
+                <optgroup label="Indian Languages"><option value="Hindi">Hindi (हिंदी)</option><option value="Marathi">Marathi (मराठी)</option><option value="Chhattisgarhi">Chhattisgarhi (छत्तीसगढ़ी)</option><option value="Bengali">Bengali (বাংলা)</option><option value="Gujarati">Gujarati (ગુજરાતી)</option><option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option><option value="Tamil">Tamil (தமிழ்)</option><option value="Telugu">Telugu (తెలుగు)</option><option value="Kannada">Kannada (ಕನ್ನಡ)</option><option value="Malayalam">Malayalam (മലയാളം)</option><option value="Odia">Odia (ଓଡ଼ିଆ)</option><option value="Urdu">Urdu (اردو)</option><option value="Assamese">Assamese (অসমিয়া)</option><option value="Nepali">Nepali (नेपाली)</option><option value="Sanskrit">Sanskrit (संस्कृतम्)</option><option value="Konkani">Konkani (कोंकणी)</option><option value="Maithili">Maithili (मैथिली)</option><option value="Sindhi">Sindhi (सिंधी)</option><option value="Santali">Santali (ᱥᱟᱱᱛᱟᱲᱤ)</option><option value="Dogri">Dogri (डोगरी)</option><option value="Kashmiri">Kashmiri (कॉशुर)</option><option value="Bodo">Bodo (बड़ो)</option><option value="Manipuri">Manipuri (মৈতৈলোন্)</option></optgroup>
+                <optgroup label="Asian Languages"><option value="Chinese Simplified">Chinese (Simplified)</option><option value="Chinese Traditional">Chinese (Traditional)</option><option value="Japanese">Japanese (日本語)</option><option value="Korean">Korean (한국어)</option><option value="Thai">Thai (ไทย)</option><option value="Vietnamese">Vietnamese (Tiếng Việt)</option><option value="Indonesian">Indonesian (Bahasa Indonesia)</option><option value="Malay">Malay (Bahasa Melayu)</option><option value="Filipino">Filipino (Tagalog)</option><option value="Sinhala">Sinhala (සිංහල)</option><option value="Burmese">Burmese (မြန်မာ)</option><option value="Khmer">Khmer (ភាសាខ្មែរ)</option><option value="Lao">Lao (ລາວ)</option><option value="Mongolian">Mongolian (Монгол)</option></optgroup>
+                <optgroup label="Middle Eastern Languages"><option value="Arabic">Arabic (العربية)</option><option value="Hebrew">Hebrew (עברית)</option><option value="Persian">Persian / Farsi (فارسی)</option><option value="Pashto">Pashto (پښتو)</option><option value="Kurdish">Kurdish (Kurdî)</option><option value="Turkish">Turkish (Türkçe)</option></optgroup>
+                <optgroup label="European Languages"><option value="Spanish">Spanish (Español)</option><option value="French">French (Français)</option><option value="German">German (Deutsch)</option><option value="Italian">Italian (Italiano)</option><option value="Portuguese">Portuguese (Português)</option><option value="Russian">Russian (Русский)</option><option value="Ukrainian">Ukrainian (Українська)</option><option value="Polish">Polish (Polski)</option><option value="Dutch">Dutch (Nederlands)</option><option value="Greek">Greek (Ελληνικά)</option><option value="Swedish">Swedish (Svenska)</option><option value="Norwegian">Norwegian (Norsk)</option><option value="Danish">Danish (Dansk)</option><option value="Finnish">Finnish (Suomi)</option><option value="Czech">Czech (Čeština)</option><option value="Hungarian">Hungarian (Magyar)</option><option value="Romanian">Romanian (Română)</option><option value="Bulgarian">Bulgarian (Български)</option><option value="Serbian">Serbian (Српски)</option><option value="Croatian">Croatian (Hrvatski)</option></optgroup>
+                <optgroup label="African Languages"><option value="Swahili">Swahili (Kiswahili)</option><option value="Zulu">Zulu (IsiZulu)</option><option value="Xhosa">Xhosa (IsiXhosa)</option><option value="Yoruba">Yoruba</option><option value="Igbo">Igbo</option><option value="Hausa">Hausa</option><option value="Amharic">Amharic (አማርኛ)</option><option value="Somali">Somali (Soomaali)</option></optgroup>
+                <optgroup label="American Languages"><option value="English US">English (US)</option><option value="English UK">English (UK)</option><option value="Spanish Latin">Spanish (Latin America)</option><option value="Portuguese Brazil">Portuguese (Brazil)</option><option value="Quechua">Quechua</option><option value="Guarani">Guarani</option></optgroup>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Interface Theme</label>
+            <select onchange="changeTheme(this.value)" class="form-group" style="width:100%; padding: 12px; appearance: none; background: var(--glass); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; transition: 0.3s; font-size: 0.9rem;">
+                <option value="dark">Dark Theme</option>
+                <option value="light">Light Theme</option>
+                <option value="cyber">Cyber Mode</option>
+            </select>
+        </div>
+        <button class="form-submit-btn" onclick="saveSettings()">Save Settings</button>
+    </div>
+
+    <div class="modal" id="forceLoginModal" style="z-index: 10000; text-align:center;">
+        <h2 style="color:var(--error)">Session Expired</h2>
+        <p>Please <b>Login</b> to continue.</p>
+        <button class="form-submit-btn" onclick="openAuthModal('login'); document.getElementById('forceLoginModal').style.display='none';">LOGIN NOW</button>
+    </div>
+
+    <div class="modal" id="adminModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Developer Console</h2>
+        <div class="form-group"><label>App Name</label><input type="text" id="appName" placeholder="e.g. Clock App"></div>
+        <div class="form-group"><label>Trigger Keywords (comma separated)</label><input type="text" id="appKeywords" placeholder="e.g. time, date"></div>
+        <div class="form-group"><label>JavaScript Code</label><textarea id="appCode" placeholder="return 'Result';"></textarea></div>
+        <button class="form-submit-btn" onclick="saveAppToFirestore()">DEPLOY APP</button>
+    </div>
+
+    <div class="modal info-modal" id="aboutModal"><span class="close-modal-btn" onclick="closeModals()">&times;</span><h2>About bol-ai</h2><p><strong>bol-ai</strong> is a <span class="highlight">high-performance reasoning engine</span> conceptualized and architected by <strong>Vivek Dalvi</strong>. It is built to simulate advanced human-like logic with extreme speed.</p><p>The system runs on a custom <strong>HTML5/JS Core</strong> seamlessly integrated with <strong>Firebase Cloud Infrastructure</strong>. It is designed to handle complex queries, mathematical reasoning, and multi-lingual conversations without lag.</p><p><strong>Version 1.0</strong> introduces unlimited context, robust file processing for coding, and improved UX.</p></div>
+    <div class="modal info-modal" id="privacyModal"><span class="close-modal-btn" onclick="closeModals()">&times;</span><h2>Logic Privacy Protocol</h2><p>At <strong>bol-ai</strong>, privacy is not just a policy; it is part of the system architecture designed by Vivek Dalvi.</p><p><strong class="highlight">1. Data Sovereignty</strong><br>Your conversations are yours. The chat history is stored locally on your physical device using Browser LocalStorage. We do not maintain a cloud database of your personal conversations.</p><p><strong class="highlight">2. Zero-Knowledge Analytics</strong><br>Our servers only count the <em>number</em> of requests to ensure system stability. The actual content (the "payload") of your message is processed in real-time and then discarded from the server memory immediately after the response is generated.</p><p><strong class="highlight">3. Encryption Standards</strong><br>All data in transit is encrypted via HTTPS/TLS 1.3. This ensures that no third party can intercept the logic flow between your device and the bol-ai core.</p><p>We are committed to providing a secure, intelligent, and private AI experience.</p></div>
+    <div class="modal info-modal" id="contactModal"><span class="close-modal-btn" onclick="closeModals()">&times;</span><h2>System Support</h2><p>For technical inquiries, bug reports, or partnership opportunities regarding the bol-ai engine, please reach out directly:</p><div style="margin: 30px 0; padding: 20px; border: 2px dashed var(--accent); border-radius: 15px; text-align: center; background: rgba(0,255,255,0.05);"><i class="fas fa-envelope" style="font-size: 2rem; color: var(--accent); margin-bottom: 10px; display: block;"></i><span style="font-size: 1.5rem; font-weight: 800; color: var(--text);">vcoder7311@gmail.com</span></div><p style="text-align: center; font-size: 0.9rem; color: var(--text-dim);">Response time: Usually within 24 hours. <br> Headquarters: India</p></div>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); 
+
+        let currentUser = null;
+        let isLoginMode = true;
+        let admin_custom_desc = "";
+        let chatContext = [];
+        let currentSessionId = Date.now();
+        let registeredApps = [];
+        let userSettings = { name: "User", instructions: "" };
+        
+        // UPGRADE: Variables for Stop Control
+        let stopStreaming = false;
+        let isGenerating = false;
+        let abortController = null; // To cancel fetch requests
+
+        // --- GLOBAL CODE ACTIONS ---
+        window.copyCode = (btn) => {
+            const pre = btn.closest('pre');
+            const code = pre.querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const icon = btn.querySelector('i');
+                const originalClass = icon.className;
+                icon.className = "fas fa-check";
+                btn.style.color = "var(--success)";
+                setTimeout(() => { icon.className = originalClass; btn.style.color = ""; }, 2000);
+            }).catch(err => customAlert("Failed to copy. Please try again."));
+        };
+
+        window.downloadCode = (btn) => {
+            const pre = btn.closest('pre');
+            const code = pre.querySelector('code').innerText;
+            const codeClass = pre.querySelector('code').className;
+            let ext = "txt";
+            if(codeClass.includes('language-html')) ext = "html";
+            else if(codeClass.includes('language-css')) ext = "css";
+            else if(codeClass.includes('language-js')) ext = "js";
+            else if(codeClass.includes('language-python')) ext = "py";
+            else if(codeClass.includes('language-java')) ext = "java";
+            else if(codeClass.includes('language-c')) ext = "c";
+            else if(codeClass.includes('language-xml')) ext = "xml";
+            
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bol-ai-code.${ext}`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        };
+
+        // --- CUSTOM POPUP LOGIC ---
+        function showCustomPopup(title, msg, showInput, callback) {
+            document.getElementById('popupTitle').innerText = title;
+            document.getElementById('popupMsg').innerText = msg;
+            const pInput = document.getElementById('popupInput');
+            pInput.style.display = showInput ? 'block' : 'none';
+            pInput.value = "";
+            document.getElementById('customPopup').style.display = 'flex';
+            if(showInput) pInput.focus();
+
+            const pBtn = document.getElementById('popupActionBtn');
+            const newBtn = pBtn.cloneNode(true); // Re-create button to remove old listeners
+            pBtn.parentNode.replaceChild(newBtn, pBtn);
+            
+            newBtn.onclick = () => {
+                if(showInput && !pInput.value) return; 
+                closeCustomPopup();
+                if (callback) callback(pInput.value);
+            };
+        }
+        function closeCustomPopup() { document.getElementById('customPopup').style.display = 'none'; }
+        function customAlert(msg) { showCustomPopup("Notification", msg, false, null); }
+
+        // --- SETTINGS MANAGEMENT ---
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('bol_user_settings');
+            if (savedSettings) {
+                userSettings = JSON.parse(savedSettings);
+            }
+            document.getElementById('userName').value = userSettings.name || "";
+            document.getElementById('systemInstructions').value = userSettings.instructions || "";
+        }
+
+        function saveSettings() {
+            userSettings.name = document.getElementById('userName').value.trim();
+            userSettings.instructions = document.getElementById('systemInstructions').value.trim();
+            localStorage.setItem('bol_user_settings', JSON.stringify(userSettings));
+
+            if (currentUser && userSettings.name) {
+                db.collection('users').doc(currentUser.uid).set({ name: userSettings.name }, { merge: true });
+            }
+            customAlert("Settings Saved!");
+            closeModals();
+        }
+
+        // --- LOAD APPS & SYSTEM DATA ---
+        db.collection('apps').onSnapshot((snapshot) => {
+            registeredApps = snapshot.docs.map(doc => doc.data());
+        });
+        db.collection('settings').doc('system').onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                admin_custom_desc = data.custom_description || "";
+                document.getElementById('maintenance-screen').style.display = data.maintenance_mode ? 'flex' : 'none';
+            }
+        });
+
+        // --- AUTHENTICATION ---
+        auth.onAuthStateChanged(async user => {
+            currentUser = user;
+            updateAuthUI();
+            if (user) {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().name) {
+                    userSettings.name = userDoc.data().name;
+                    document.getElementById('userName').value = userSettings.name;
+                    localStorage.setItem('bol_user_settings', JSON.stringify(userSettings));
+                }
+            }
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            container.innerHTML = currentUser ? `<div class="user-info">${currentUser.email}</div><button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>` : `<button class="auth-btn" onclick="openAuthModal('login')">Login / Sign Up</button>`;
+        }
+
+        function openAuthModal(mode) { isLoginMode = (mode === 'login'); renderAuthForm(); openModal('authModal'); }
+        function toggleAuthMode() { isLoginMode = !isLoginMode; renderAuthForm(); }
+        function renderAuthForm() {
+            document.getElementById('authTitle').innerText = isLoginMode ? "Login" : "Sign Up";
+            document.getElementById('authActionBtn').innerText = isLoginMode ? "LOGIN" : "CREATE ACCOUNT";
+            document.getElementById('authToggleText').innerText = isLoginMode ? "New user? Create account" : "Already have an account? Login";
+        }
+
+        function handleAuth() {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            if(!email || !pass) return customAlert("Please fill all fields");
+
+            const action = isLoginMode ? auth.signInWithEmailAndPassword(email, pass) : auth.createUserWithEmailAndPassword(email, pass);
+            action.then(userCredential => {
+                if (!isLoginMode) {
+                    db.collection('users').doc(userCredential.user.uid).set({ email: userCredential.user.email, lastLogin: new Date() });
+                } else {
+                    db.collection('users').doc(userCredential.user.uid).update({ lastLogin: new Date() });
+                }
+                customAlert(isLoginMode ? "Login successful!" : "Account created successfully!");
+                closeModals();
+            }).catch(e => customAlert(e.message));
+        }
+        function handleLogout() { auth.signOut().then(() => window.location.reload()); }
+        setTimeout(() => { if (!currentUser) openModal('forceLoginModal'); }, 300000); 
+
+        // --- SECRET ADMIN PANEL ---
+        let secretClicks = 0;
+        function handleSecretAdminClick() { if (++secretClicks === 5) { openModal('adminModal'); secretClicks = 0; } }
+        function saveAppToFirestore() {
+            const name = document.getElementById('appName').value;
+            const keywords = document.getElementById('appKeywords').value.toLowerCase().split(',').map(k => k.trim());
+            const code = document.getElementById('appCode').value;
+            if(!name || !code) return customAlert("Name and Code are required.");
+            db.collection('apps').add({ name, keywords, code }).then(() => { customAlert("App Deployed!"); closeModals(); });
+        }
+        
+        // --- CHAT LOGIC ---
+
+        function checkEnter(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendClick();
+            }
+        }
+
+        // UPGRADE: Unified Send/Stop Handler
+        function handleSendClick() {
+            if (isGenerating) {
+                stopGeneration();
+            } else {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text) return;
+            // REMOVED: if (text.length > 8000) check. Now allows unlimited text.
+            
+            appendMsg('user', text);
+            chatContext.push({role:'user', content:text});
+            autoSaveSession(); 
+            input.value = ''; 
+            input.style.height = 'auto'; 
+            
+            // Set UI to Thinking State
+            document.getElementById('thinking-box').style.display = 'flex';
+            toggleSendButtonState(true);
+            
+            stopStreaming = false;
+            isGenerating = true;
+
+            // Initialize AbortController for network cancellation
+            abortController = new AbortController();
+
+            try {
+                db.collection('analytics').doc('global_stats').update({
+                    total_requests: firebase.firestore.FieldValue.increment(1)
+                });
+            } catch(e) { console.warn("Analytics update failed (ignored)"); }
+
+            let appResults = "";
+            const lowerText = text.toLowerCase();
+            registeredApps.forEach(app => {
+                if (app.keywords.some(k => lowerText.includes(k))) {
+                    try { appResults += `[APP DATA (${app.name}): ${new Function(app.code)()}] \n`; } catch(e){}
+                }
+            });
+
+            const systemPrompt = `You are bol-ai 1.0. 
+            USER INFO: The user's name is ${userSettings.name}.
+            USER INSTRUCTIONS: ${userSettings.instructions}
+            ADMIN DATA: ${admin_custom_desc}
+            APP DATA: ${appResults}
+            INSTRUCTIONS: Reply in ${document.getElementById('langSelect').value}. Use LaTeX for math. Be concise if needed.`;
+
+            try {
+                // Pass signal to fetch to allow abortion
+                const res = await fetch("/api/chat", {
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" },
+                    signal: abortController.signal,
+                    body: JSON.stringify({ message: text, system: systemPrompt, history: chatContext.slice(-10) }) // Increased context
+                });
+                
+                if(res.status === 429) throw new Error("Cloud limit reached.");
+                if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+                
+                const data = await res.json();
+                let aiMsg = data.choices ? data.choices[0].message.content : (data.message || "Error processing response.");
+                const tokens = Math.ceil(aiMsg.length / 4);
+                
+                await typeEffect(aiMsg, data.api_index || "Cloud-1", tokens);
+                
+                if (!stopStreaming) {
+                    chatContext.push({role:'assistant', content:aiMsg});
+                    autoSaveSession();
+                }
+            } catch(e) { 
+                if (e.name === 'AbortError') {
+                     appendMsg('ai', `<span style="color:var(--warning); font-style:italic;">[Generation Stopped by User]</span>`);
+                } else {
+                    showError("Connection Failed. Please try again."); 
+                }
+            } finally {
+                resetUI();
+            }
+        }
+
+        // UPGRADE: Stop Generation Logic
+        function stopGeneration() {
+            stopStreaming = true;
+            if (abortController) {
+                abortController.abort(); // Kills the fetch request
+                abortController = null;
+            }
+            resetUI();
+        }
+
+        function resetUI() {
+            document.getElementById('thinking-box').style.display = 'none';
+            toggleSendButtonState(false);
+            isGenerating = false;
+        }
+
+        function toggleSendButtonState(generating) {
+            const btn = document.getElementById('sendActionBtn');
+            if (generating) {
+                btn.innerHTML = '<i class="fas fa-stop"></i>'; // Stop Icon
+                btn.classList.add('stopping');
+                btn.title = "Stop Generating";
+            } else {
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i>'; // Send Icon
+                btn.classList.remove('stopping');
+                btn.title = "Send Message";
+            }
+        }
+
+        // --- TYPEWRITER EFFECT & RENDERING ---
+        async function typeEffect(text, apiIdx, tokens) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            container.scrollTop = container.scrollHeight;
+
+            let currentText = '';
+            const words = text.split(' ');
+
+            for (const word of words) {
+                if (stopStreaming) break; // Cuts off loop immediately
+                currentText += word + ' ';
+                msgDiv.innerHTML = marked.parse(currentText);
+                container.scrollTop = container.scrollHeight;
+                await new Promise(resolve => setTimeout(resolve, 30)); // Faster speed
+            }
+
+            if (!stopStreaming) {
+                // Final render to ensure everything is correct
+                msgDiv.innerHTML = marked.parse(text);
+                formatCodeBlocks(msgDiv);
+                
+                const footer = document.createElement('div'); footer.className = 'msg-footer';
+                footer.innerHTML = `<span>Server: ${apiIdx} | <span class="token-count">Tokens: ${tokens}</span></span> <span class="disclaimer">bol-ai may make mistakes.</span>`;
+                msgDiv.appendChild(footer);
+            } else {
+                 msgDiv.innerHTML += ` <br><br><i>(Interrupted)</i>`;
+            }
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatCodeBlocks(element) {
+            const preBlocks = element.querySelectorAll('pre');
+            preBlocks.forEach(pre => {
+                const codeBlock = pre.querySelector('code');
+                if (codeBlock) {
+                    const header = document.createElement('div');
+                    header.className = 'code-header-bar';
+                    header.innerHTML = `
+                        <span class="code-lang">${(codeBlock.className.replace('language-','').toUpperCase() || 'CODE')}</span>
+                        <div class="code-actions">
+                            <div class="code-action-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</div>
+                            <div class="code-action-btn" onclick="downloadCode(this)"><i class="fas fa-download"></i> Download</div>
+                        </div>`;
+                    pre.insertBefore(header, codeBlock);
+                }
+            });
+            
+            element.querySelectorAll('pre code').forEach(hljs.highlightElement);
+            renderMathInElement(element, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}-msg`;
+            msgDiv.innerHTML = marked.parse(text); // Use marked to render user markdown too
+            if(role === 'ai') formatCodeBlocks(msgDiv); // Should not happen often but for safety
+            wrap.appendChild(msgDiv);
+            container.appendChild(wrap); 
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showError(msg) {
+            document.getElementById('thinking-box').style.display = 'none';
+            appendMsg('ai', `<span style="color:var(--error);">${msg}</span>`);
+        }
+        
+        // --- SESSION & HISTORY MANAGEMENT ---
+        function autoSaveSession() {
+            if(chatContext.length === 0) return;
+            let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            const idx = history.findIndex(item => item.id === currentSessionId);
+            const title = chatContext.find(m => m.role === 'user')?.content.substring(0, 25) + "..." || "New Chat";
+            const data = { id: currentSessionId, title: title, messages: chatContext, timestamp: Date.now() };
+            
+            if (idx > -1) history[idx] = data; else history.unshift(data);
+            localStorage.setItem('bol_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function openManualSave() {
+            if(chatContext.length === 0) return customAlert("Chat is empty!");
+            showCustomPopup("Save Session", "Enter a name for this chat:", true, (title) => {
+                const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                history.unshift({ id: Date.now() + 1, title, messages: chatContext });
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                loadHistory();
+                customAlert("Saved successfully!");
+            });
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            showCustomPopup("Delete Chat", "Are you sure you want to wipe this session?", false, () => {
+                let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                history = history.filter(item => item.id !== id);
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                if(id === currentSessionId) startNewChat(); else loadHistory();
+            });
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            history.forEach((item) => {
+                const div = document.createElement('div'); div.className = 'history-item';
+                div.innerHTML = `<span><i class="fas fa-comments"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                div.onclick = () => {
+                    chatContext = item.messages; currentSessionId = item.id;
+                    document.getElementById('chat-container').innerHTML = "";
+                    chatContext.forEach(m => {
+                        if(m.role === 'assistant') { // Re-render AI messages with full logic
+                             // Simulate render without typing
+                             appendMsg('ai', m.content);
+                        } else {
+                           appendMsg('user', m.content);
+                        }
+                    });
+                    if(window.innerWidth <= 768) toggleSidebar();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // --- UTILITY FUNCTIONS ---
+        function changeTheme(val) { document.body.setAttribute('data-theme', val); }
+        function startNewChat() { 
+            chatContext = []; currentSessionId = Date.now(); 
+            document.getElementById('chat-container').innerHTML = `<div class="msg-wrapper"><div class="message ai-msg"><h3>bol-ai 1.0 </h3><p>New session initialized.</p></div></div>`;
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 250)}px`; }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('open');
+            document.getElementById('overlay').style.display = sb.classList.contains('open') && window.innerWidth <= 768 ? 'block' : 'none';
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        }
+
+        // UPGRADE: Strict File Handling & Validation
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Strict Validation for Coding & Text files only
+            const allowedExtensions = ['.c', '.cpp', '.cs', '.txt', '.html', '.css', '.js', '.py', '.java', '.kts', '.kt', '.json', '.xml', '.md', '.sql', '.php', '.rb', '.go', '.rs', '.swift'];
+            const fileName = file.name.toLowerCase();
+            const isAllowed = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+            if (!isAllowed) {
+                customAlert("Unsupported File Format! Please upload only code or text files (.txt, .js, .py, .c, etc).");
+                event.target.value = ""; // Reset input
+                return;
+            }
+
+            // REMOVED: Size limit check. Reading file regardless of size (Warning: Huge files may freeze browser, but limit is removed as requested).
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                const userInput = document.getElementById('userInput');
+                const existingVal = userInput.value;
+                userInput.value = `${existingVal}\n\n--- FILE START: ${file.name} ---\n${content}\n--- FILE END ---\n\n`.trim();
+                autoExpand(userInput);
+                customAlert(`File "${file.name}" loaded successfully into chat!`);
+            };
+            reader.onerror = () => customAlert("Error reading file.");
+            reader.readAsText(file);
+        }
+
+        window.onload = () => {
+            loadHistory();
+            loadSettings();
+        };
+    </script>
+</body>
+</html>
