@@ -42,7 +42,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             # 3. Get API Keys from Environment Variable (MY_CODER_API)
-            all_keys_str = os.environ.get("MY_CODER_API", "")
+            all_keys_str = os.environ.get("MY_API_KEYS", "")
             all_keys = [k.strip() for k in all_keys_str.split(",") if k.strip()]
             
             if not all_keys:
