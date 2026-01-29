@@ -26,7 +26,7 @@ class handler(BaseHTTPRequestHandler):
 
             # 3. Get API Keys from environment variable (Updated Name)
             # Vercel me aap isi naam se key banayenge: my_ai_coder_bol-ai
-            all_keys = os.environ.get("my_ai_coder_bol-ai", "").split(",")
+            all_keys = os.environ.get("MY_CODER_API", "").split(",")
             
             if not all_keys or all_keys == ['']:
                 self.send_response(500)
