@@ -62,10 +62,7 @@ class handler(BaseHTTPRequestHandler):
                 }).encode())
                 return
 
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            
+            messages = [{"role": "system", "content": system_prompt}]
             messages.extend(history)
             messages.append({"role": "user", "content": user_msg})
 
@@ -76,7 +73,7 @@ class handler(BaseHTTPRequestHandler):
                     "Content-Type": "application/json"
                 },
                 data=json.dumps({
-                    "model": "openai/gpt-oss-120b:free", 
+                    "model": "nvidia/nemotron-3-nano-30b-a3b:free",
                     "messages": messages,
                     "reasoning": {"enabled": True}
                 })
