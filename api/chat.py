@@ -9,7 +9,6 @@ API_USAGE = {}
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
-            
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
                 self.send_response(400)
@@ -23,7 +22,7 @@ class handler(BaseHTTPRequestHandler):
             system_prompt = post_data.get('system')
             history = post_data.get('history', [])
 
-            all_keys = os.environ.get("MY_API_KEYS", "").split(",")
+            all_keys = os.environ.get("MY_INFORMATION_AI", "").split(",")
             
             if not all_keys or all_keys == ['']:
                 self.send_response(500)
@@ -63,7 +62,10 @@ class handler(BaseHTTPRequestHandler):
                 }).encode())
                 return
 
-            messages = [{"role": "system", "content": system_prompt}]
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            
             messages.extend(history)
             messages.append({"role": "user", "content": user_msg})
 
@@ -71,13 +73,12 @@ class handler(BaseHTTPRequestHandler):
                 url="https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {selected_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://bol-ai.vercel.app", 
-                    "X-Title": "Bol AI",
+                    "Content-Type": "application/json"
                 },
                 data=json.dumps({
-                    "model": "tngtech/deepseek-r1t2-chimera:free", 
-                    "messages": messages
+                    "model": "openai/gpt-oss-120b:free", 
+                    "messages": messages,
+                    "reasoning": {"enabled": True}
                 })
             )
             
