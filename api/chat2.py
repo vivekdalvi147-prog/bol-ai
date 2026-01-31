@@ -84,7 +84,7 @@ class handler(BaseHTTPRequestHandler):
 
             # Call API
             response = client.models.generate_content(
-                model="gemma-3-27b",
+                model="Gemma 3 27B",
                 contents=formatted_contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
