@@ -4,7 +4,7 @@ import os
 import google.generativeai as genai
 from datetime import datetime
 
-# Global usage tracking
+# Global usage tracking (Note: Vercel par ye reset hota rehta hai, jo limit ke liye achha hai)
 API_USAGE = {}
 
 class handler(BaseHTTPRequestHandler):
@@ -16,16 +16,16 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             post_data = json.loads(self.rfile.read(content_length))
-            user_msg = post_data.get('message')
+            user_msg = post_data.get('message', '')
             system_prompt = post_data.get('system', "You are a helpful assistant.")
             history = post_data.get('history', [])
 
-            # Get API Keys from Vercel Environment
+            # 1. API Keys Load Karna
             all_keys = os.environ.get("MY_CODER_BOL_AI", "").split(",")
             all_keys = [k.strip() for k in all_keys if k.strip()]
 
             if not all_keys:
-                self.send_error_res(500, "API Keys missing in MY_CODER_BOL_AI")
+                self.send_error_res(500, "No API Keys found in Environment Variable")
                 return
 
             now = datetime.now()
@@ -35,20 +35,21 @@ class handler(BaseHTTPRequestHandler):
             selected_key = None
             selected_index = 0
 
-            # --- Key Selection Logic (30 RPM, 14000 RPD, 15000 TPM) ---
+            # 2. Key Selection Logic (30 RPM, 14000 RPD, 15000 TPM)
             for i, key in enumerate(all_keys):
                 if key not in API_USAGE:
                     API_USAGE[key] = {"min": current_minute, "min_req": 0, "min_tokens": 0, "day": current_day, "day_req": 0}
 
+                # Resets
                 if API_USAGE[key]["min"] != current_minute:
                     API_USAGE[key]["min"] = current_minute
                     API_USAGE[key]["min_req"] = 0
                     API_USAGE[key]["min_tokens"] = 0
-                
                 if API_USAGE[key]["day"] != current_day:
                     API_USAGE[key]["day"] = current_day
                     API_USAGE[key]["day_req"] = 0
 
+                # Check Constraints
                 if (API_USAGE[key]["min_req"] < 30 and 
                     API_USAGE[key]["day_req"] < 14000 and 
                     API_USAGE[key]["min_tokens"] < 15000):
@@ -57,63 +58,65 @@ class handler(BaseHTTPRequestHandler):
                     break
 
             if not selected_key:
-                self.send_error_res(429, "All keys limit reached. Try after 1 minute.")
+                self.send_error_res(429, "Server Busy: All keys reached limits. Try in 1 minute.")
                 return
 
-            # --- Google GenAI Configuration ---
+            # 3. Google AI Setup
             genai.configure(api_key=selected_key)
-
-            # Gemma 3 ke liye possible names jo Google accept karta hai
-            # Pehla wala sabse zyada chances wala hai
-            possible_model_names = ["gemma-3-27b", "models/gemma-3-27b", "gemma-3-27b-it"]
             
-            response = None
-            error_msg = ""
+            # --- MODEL SELECTION FIX ---
+            # Hum pehle 'gemma-3-27b' try karenge, agar wo nahi mila toh Flash par switch karenge
+            try:
+                model = genai.GenerativeModel(
+                    model_name="models/gemma-3-27b", # Correct Format
+                    system_instruction=system_prompt
+                )
+            except:
+                # Fallback agar Gemma 3 recognize nahi ho raha
+                model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
-            # Chat history format convert karna
+            # 4. History Formatting
             chat_history = []
             for h in history:
-                role = "user" if h['role'] == "user" else "model"
+                # Google only accepts 'user' and 'model'
+                role = "user" if h['role'].lower() == "user" else "model"
                 chat_history.append({"role": role, "parts": [h['content']]})
 
-            # Teeno model names try karega jab tak 200 OK na mil jaye
-            for m_name in possible_model_names:
-                try:
-                    model = genai.GenerativeModel(model_name=m_name, system_instruction=system_prompt)
-                    chat = model.start_chat(history=chat_history)
-                    response = chat.send_message(user_msg)
-                    if response:
-                        actual_model_used = m_name
-                        break
-                except Exception as e:
-                    error_msg = str(e)
-                    continue # Agla name try karein agar 404 aaye
+            # 5. Call API
+            chat = model.start_chat(history=chat_history)
+            response = chat.send_message(user_msg)
 
-            if not response:
-                self.send_error_res(404, f"Google Models (Gemma 3) Not Found. Last error: {error_msg}")
-                return
-
-            # --- Usage Tracking Update ---
-            prompt_tokens = len(user_msg) // 3 # Approx
-            res_tokens = len(response.text) // 3 # Approx
-            total_tokens = prompt_tokens + res_tokens
+            # 6. Tracking Tokens
+            # Google response.usage_metadata se sahi tokens milte hain
+            try:
+                t_tokens = response.usage_metadata.total_token_count
+            except:
+                t_tokens = (len(user_msg) + len(response.text)) // 3 # Fallback estimation
 
             API_USAGE[selected_key]["min_req"] += 1
             API_USAGE[selected_key]["day_req"] += 1
-            API_USAGE[selected_key]["min_tokens"] += total_tokens
+            API_USAGE[selected_key]["min_tokens"] += t_tokens
 
-            # --- Success Response ---
+            # 7. Final Response
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps({
-                "choices": [{"message": {"role": "assistant", "content": response.text}}],
+            
+            final_json = {
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": response.text
+                    }
+                }],
                 "api_index": f"Key-{selected_index}",
-                "model_used": actual_model_used
-            }).encode())
+                "usage": {"total_tokens": t_tokens}
+            }
+            self.wfile.write(json.dumps(final_json).encode())
 
         except Exception as e:
-            self.send_error_res(500, f"Critical Error: {str(e)}")
+            # Agar error aaye toh response mein dikhega ki exact error kya hai
+            self.send_error_res(500, f"AI Error: {str(e)}")
 
     def send_error_res(self, code, message):
         self.send_response(code)
