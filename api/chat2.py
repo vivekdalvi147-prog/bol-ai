@@ -1,10 +1,10 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
-import google.generativeai as genai # Stable Library
+import google.generativeai as genai
 from datetime import datetime
 
-# Usage tracking data
+# Global Dictionary to track usage across requests
 API_USAGE = {}
 
 class handler(BaseHTTPRequestHandler):
@@ -20,12 +20,12 @@ class handler(BaseHTTPRequestHandler):
             system_prompt = post_data.get('system', "You are a helpful assistant.")
             history = post_data.get('history', [])
 
-            # API Keys load karna
+            # API Keys load karna (Vercel Environment Variable: MY_CODER_BOL_AI)
             all_keys = os.environ.get("MY_CODER_BOL_AI", "").split(",")
             all_keys = [k.strip() for k in all_keys if k.strip()]
 
             if not all_keys:
-                self.send_error_res(500, "API Keys missing in environment")
+                self.send_error_res(500, "API Keys missing in environment variable MY_CODER_BOL_AI")
                 return
 
             now = datetime.now()
@@ -35,7 +35,7 @@ class handler(BaseHTTPRequestHandler):
             selected_key = None
             selected_index = 0
 
-            # Check Limits for each key
+            # --- API Key Selection Logic with Limits ---
             for i, key in enumerate(all_keys):
                 if key not in API_USAGE:
                     API_USAGE[key] = {
@@ -43,17 +43,18 @@ class handler(BaseHTTPRequestHandler):
                         "day": current_day, "day_req": 0
                     }
 
-                # Reset logic
+                # Reset Minute Limits
                 if API_USAGE[key]["min"] != current_minute:
                     API_USAGE[key]["min"] = current_minute
                     API_USAGE[key]["min_req"] = 0
                     API_USAGE[key]["min_tokens"] = 0
                 
+                # Reset Daily Limits
                 if API_USAGE[key]["day"] != current_day:
                     API_USAGE[key]["day"] = current_day
                     API_USAGE[key]["day_req"] = 0
 
-                # Limits: 30 RPM, 14000 RPD, 15000 TPM
+                # Check Constraints: 30 RPM, 14000 RPD, 15000 TPM
                 if (API_USAGE[key]["min_req"] < 30 and 
                     API_USAGE[key]["day_req"] < 14000 and 
                     API_USAGE[key]["min_tokens"] < 15000):
@@ -63,20 +64,20 @@ class handler(BaseHTTPRequestHandler):
                     break
 
             if not selected_key:
-                self.send_error_res(429, "All keys exhausted for this minute/day.")
+                self.send_error_res(429, "All keys are busy (Limit reached). Try after 1 minute.")
                 return
 
-            # Setup Google AI
+            # --- Google GenAI Setup ---
             genai.configure(api_key=selected_key)
             
-            # Gemma 3 27B handle karne ke liye model setup
-            # Note: Agar 'gemma-3-27b' error de, to 'gemini-1.5-flash' try karein test ke liye
+            # Model name 'gemma-2-27b-it' ya 'gemini-1.5-flash' use karein
+            # Gemma 3 abhi rollout ho raha hai, agar error de to 'gemini-1.5-flash' try karein
             model = genai.GenerativeModel(
-                model_name="gemma-3-27b", 
+                model_name="gemini-1.5-flash", # Stable model
                 system_instruction=system_prompt
             )
 
-            # History format change (Google format: user -> parts, model -> parts)
+            # Convert history to Google format
             chat_history = []
             for h in history:
                 role = "user" if h['role'] == "user" else "model"
@@ -87,18 +88,21 @@ class handler(BaseHTTPRequestHandler):
             # API Call
             response = chat.send_message(user_msg)
 
-            # Token Calculation (Usage tracking)
-            # Google response me usage_metadata deta hai
-            prompt_tokens = model.count_tokens(user_msg).total_tokens
-            res_tokens = model.count_tokens(response.text).total_tokens
-            total_tokens = prompt_tokens + res_tokens
+            # Token Tracking
+            # Response se usage nikalna (Agar available na ho toh count_tokens use karein)
+            try:
+                prompt_tokens = model.count_tokens(user_msg).total_tokens
+                res_tokens = model.count_tokens(response.text).total_tokens
+                total_tokens = prompt_tokens + res_tokens
+            except:
+                total_tokens = 500 # Fallback agar token count fail ho jaye
 
             # Update usage stats
             API_USAGE[selected_key]["min_req"] += 1
             API_USAGE[selected_key]["day_req"] += 1
             API_USAGE[selected_key]["min_tokens"] += total_tokens
 
-            # Success response
+            # Success Response
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -111,8 +115,7 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(output).encode())
 
         except Exception as e:
-            # Error hone par response dikhayega taki debug kar sakein
-            self.send_error_res(500, f"Google API Error: {str(e)}")
+            self.send_error_res(500, f"Error: {str(e)}")
 
     def send_error_res(self, code, message):
         self.send_response(code)
