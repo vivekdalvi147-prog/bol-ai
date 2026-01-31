@@ -1,124 +1,118 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import os
 import requests
+import os
 from datetime import datetime
 
-# Global usage tracking
+# Global dictionary to track usage
+# Format: { "key": {"day": "YYYY-MM-DD", "day_count": 0, "min": "YYYY-MM-DD HH:MM", "min_count": 0} }
 API_USAGE = {}
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
+            # 1. Parse Input Data
             content_length = int(self.headers.get('Content-Length', 0))
-            post_data = json.loads(self.rfile.read(content_length))
-            
-            user_msg = post_data.get('message', '')
-            system_prompt = post_data.get('system', 'You are a helpful assistant.')
-            history = post_data.get('history', [])
-
-            # 1. API Keys Load
-            all_keys = os.environ.get("MY_CODER_BOL_AI", "").split(",")
-            all_keys = [k.strip() for k in all_keys if k.strip()]
-
-            if not all_keys:
-                self.send_error_res(500, "API Keys missing in Vercel Env")
+            if content_length == 0:
+                self.send_error_response(400, "No data received")
                 return
 
+            post_data = json.loads(self.rfile.read(content_length))
+            user_msg = post_data.get('message')
+            system_prompt = post_data.get('system', "You are a helpful assistant.")
+            history = post_data.get('history', [])
+
+            # 2. Get API Keys from Environment
+            all_keys = os.environ.get("MY_API_KEYS", "").split(",")
+            all_keys = [k.strip() for k in all_keys if k.strip()]
+            
+            if not all_keys:
+                self.send_error_response(500, "No API Keys found in environment")
+                return
+
+            # 3. Time tracking for limits
             now = datetime.now()
-            current_min = now.strftime("%Y-%m-%d %H:%M")
+            current_minute = now.strftime("%Y-%m-%d %H:%M")
             current_day = now.strftime("%Y-%m-%d")
 
             selected_key = None
             selected_index = 0
 
-            # 2. Key Selection Logic (30 RPM, 14000 RPD, 15000 TPM)
+            # 4. Key Rotation & Rate Limiting Logic
             for i, key in enumerate(all_keys):
                 if key not in API_USAGE:
-                    API_USAGE[key] = {"min": current_min, "min_req": 0, "min_tokens": 0, "day": current_day, "day_req": 0}
+                    API_USAGE[key] = {
+                        "day": current_day, "day_count": 0,
+                        "min": current_minute, "min_count": 0
+                    }
 
-                # Reset Minute/Day
-                if API_USAGE[key]["min"] != current_min:
-                    API_USAGE[key]["min"] = current_min
-                    API_USAGE[key]["min_req"] = 0
-                    API_USAGE[key]["min_tokens"] = 0
-                if API_USAGE[key]["day"] != current_day:
-                    API_USAGE[key]["day"] = current_day
-                    API_USAGE[key]["day_req"] = 0
+                stats = API_USAGE[key]
 
-                # Check Limits
-                if (API_USAGE[key]["min_req"] < 30 and 
-                    API_USAGE[key]["day_req"] < 14000 and 
-                    API_USAGE[key]["min_tokens"] < 15000):
+                # Reset Minute Count if minute changed
+                if stats["min"] != current_minute:
+                    stats["min"] = current_minute
+                    stats["min_count"] = 0
+
+                # Reset Day Count if day changed
+                if stats["day"] != current_day:
+                    stats["day"] = current_day
+                    stats["day_count"] = 0
+
+                # Check Limits: 30 per minute AND 1000 per day
+                if stats["min_count"] < 30 and stats["day_count"] < 1000:
                     selected_key = key
                     selected_index = i + 1
+                    stats["min_count"] += 1
+                    stats["day_count"] += 1
                     break
 
             if not selected_key:
-                self.send_error_res(429, "All keys limit reached. Try after 1 minute.")
+                self.send_error_response(429, "Rate Limit Exceeded: All keys are busy (Max 30/min or 1000/day).")
                 return
 
-            # 3. Prepare Payload (Google Official Format)
-            # Gemma 3 27B ka official ID aksar 'gemma-3-27b' hota hai
-            model_id = "gemma-3-27b" 
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={selected_key}"
-            
-            # Format History
-            contents = []
-            for h in history:
-                role = "user" if h['role'] == "user" else "model"
-                contents.append({"role": role, "parts": [{"text": h['content']}]})
-            
-            # Add Current Message
-            contents.append({"role": "user", "parts": [{"text": user_msg}]})
+            # 5. Prepare Messages for Chat Completion
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(history)
+            messages.append({"role": "user", "content": user_msg})
 
+            # 6. Call Groq API (Kimi Model)
+            # Note: Groq uses OpenAI compatible endpoint
+            groq_url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {selected_key}",
+                "Content-Type": "application/json"
+            }
             payload = {
-                "contents": contents,
-                "system_instruction": {"parts": [{"text": system_prompt}]},
-                "generationConfig": {
-                    "temperature": 0.7,
-                    "maxOutputTokens": 2048
-                }
+                "model": "moonshotai/kimi-k2-instruct",
+                "messages": messages,
+                "temperature": 0.7
             }
 
-            # 4. Official API Call
-            response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
-            res_json = response.json()
+            ai_res = requests.post(groq_url, headers=headers, json=payload)
+            
+            if ai_res.status_code == 200:
+                data = ai_res.json()
+                # Metadata add karna (kaunsa key use hua)
+                data["api_usage_info"] = {
+                    "key_index": selected_index,
+                    "min_remaining": 30 - API_USAGE[selected_key]["min_count"],
+                    "day_remaining": 1000 - API_USAGE[selected_key]["day_count"]
+                }
 
-            if response.status_code != 200:
-                # Agar Gemma 404 de, toh Gemini Flash try karein (Auto-Fallback)
-                model_id = "gemini-1.5-flash"
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={selected_key}"
-                response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
-                res_json = response.json()
-
-            # 5. Extract Text and Usage
-            try:
-                ai_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                total_tokens = res_json.get('usageMetadata', {}).get('totalTokenCount', 500)
-            except Exception:
-                self.send_error_res(response.status_code, f"API Error: {json.dumps(res_json)}")
-                return
-
-            # Update Stats
-            API_USAGE[selected_key]["min_req"] += 1
-            API_USAGE[selected_key]["day_req"] += 1
-            API_USAGE[selected_key]["min_tokens"] += total_tokens
-
-            # 6. Response
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "choices": [{"message": {"role": "assistant", "content": ai_text}}],
-                "api_index": f"Key-{selected_index}",
-                "model": model_id
-            }).encode())
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+            else:
+                # API error handles
+                self.send_response(ai_res.status_code)
+                self.end_headers()
+                self.wfile.write(ai_res.content)
 
         except Exception as e:
-            self.send_error_res(500, str(e))
+            self.send_error_response(500, f"Internal Server Error: {str(e)}")
 
-    def send_error_res(self, code, message):
+    def send_error_response(self, code, message):
         self.send_response(code)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
