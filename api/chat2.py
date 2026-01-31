@@ -1,29 +1,20 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import requests
 import os
 from datetime import datetime
+from google import genai
+from google.genai import types
 
-# Global storage for usage tracking
-# Note: Vercel serverless functions me memory reset hoti rehti hai, 
-# but temporary rotation ke liye yeh kaam karega.
+# Global Dictionary to track usage
+# Format: { "API_KEY": {"min": "HH:MM", "min_req": 0, "min_tokens": 0, "day": "YYYY-MM-DD", "day_req": 0} }
 API_USAGE = {}
 
 class handler(BaseHTTPRequestHandler):
-    
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
-
     def do_POST(self):
         try:
-            # 1. Parse Input
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
-                self.send_error_response(400, "No data received")
+                self.send_error_res(400, "No data received")
                 return
 
             post_data = json.loads(self.rfile.read(content_length))
@@ -31,105 +22,112 @@ class handler(BaseHTTPRequestHandler):
             system_prompt = post_data.get('system', "You are a helpful assistant.")
             history = post_data.get('history', [])
 
-            if not user_msg and not history:
-                self.send_error_response(400, "Message content is required")
-                return
+            # Load API Keys from Environment
+            all_keys = os.environ.get("MY_CODER_BOL_AI", "").split(",")
+            all_keys = [k.strip() for k in all_keys if k.strip()]
 
-            # 2. Get API Keys from Environment Variable
-            all_keys_str = os.environ.get("MY_CODER_BOL_AI", "")
-            all_keys = [k.strip() for k in all_keys_str.split(",") if k.strip()]
-            
             if not all_keys:
-                self.send_error_response(500, "No API Keys found in Environment Variables")
+                self.send_error_res(500, "No API Keys found in environment variable MY_CODER_BOL_AI")
                 return
 
-            # 3. Key Selection with Rate Limiting (40/min and 40/day)
             now = datetime.now()
             current_minute = now.strftime("%Y-%m-%d %H:%M")
             current_day = now.strftime("%Y-%m-%d")
-            
+
             selected_key = None
             selected_index = 0
 
+            # Logic to find available key based on limits
             for i, key in enumerate(all_keys):
                 if key not in API_USAGE:
                     API_USAGE[key] = {
-                        "last_min": current_minute, "min_count": 0,
-                        "last_day": current_day, "day_count": 0
+                        "min": current_minute, "min_req": 0, "min_tokens": 0,
+                        "day": current_day, "day_req": 0
                     }
 
-                # Reset Minute count if minute changed
-                if API_USAGE[key]["last_min"] != current_minute:
-                    API_USAGE[key]["last_min"] = current_minute
-                    API_USAGE[key]["min_count"] = 0
-                
-                # Reset Day count if day changed
-                if API_USAGE[key]["last_day"] != current_day:
-                    API_USAGE[key]["last_day"] = current_day
-                    API_USAGE[key]["day_count"] = 0
+                # Reset Minute Limits if minute changed
+                if API_USAGE[key]["min"] != current_minute:
+                    API_USAGE[key]["min"] = current_minute
+                    API_USAGE[key]["min_req"] = 0
+                    API_USAGE[key]["min_tokens"] = 0
 
-                # Logic: Per Minute < 40 AND Per Day < 40
-                if API_USAGE[key]["min_count"] < 40 and API_USAGE[key]["day_count"] < 40:
+                # Reset Daily Limits if day changed
+                if API_USAGE[key]["day"] != current_day:
+                    API_USAGE[key]["day"] = current_day
+                    API_USAGE[key]["day_req"] = 0
+
+                # Check Constraints: 30 requests/min, 14000 requests/day, 15000 tokens/min
+                if (API_USAGE[key]["min_req"] < 30 and 
+                    API_USAGE[key]["day_req"] < 14000 and 
+                    API_USAGE[key]["min_tokens"] < 15000):
+                    
                     selected_key = key
                     selected_index = i + 1
-                    API_USAGE[key]["min_count"] += 1
-                    API_USAGE[key]["day_count"] += 1
                     break
 
             if not selected_key:
-                self.send_error_response(429, "All API keys reached their daily or minute limit (40/40). Try again later.")
+                self.send_error_res(429, "All API keys reached their limit (RPM/TPM/RPD). Try again later.")
                 return
 
-            # 4. Prepare Messages
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.extend(history)
-            if user_msg:
-                messages.append({"role": "user", "content": user_msg})
+            # Initialize Google GenAI Client
+            client = genai.Client(api_key=selected_key)
 
-            # 5. Call SambaNova API
-            payload = {
-                "model": "DeepSeek-R1-Distill-Llama-70B",
-                "messages": messages,
-                "temperature": 0.1,
-                "top_p": 0.1
-            }
+            # Format History for Gemini (User/Model roles)
+            # GenAI uses 'user' and 'model'
+            formatted_contents = []
+            for h in history:
+                role = "model" if h['role'] == "assistant" else "user"
+                formatted_contents.append(types.Content(role=role, parts=[types.Part.from_text(text=h['content'])]))
+            
+            # Add current user message
+            formatted_contents.append(types.Content(role="user", parts=[types.Part.from_text(text=user_msg)]))
 
-            headers = {
-                "Authorization": f"Bearer {selected_key}",
-                "Content-Type": "application/json"
-            }
-
-            response = requests.post(
-                "https://api.sambanova.ai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60
+            # Call API
+            response = client.models.generate_content(
+                model="gemma-3-27b",
+                contents=formatted_contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=1000 # Aap ise adjust kar sakte hain
+                )
             )
 
-            # 6. Send Response
-            self.send_response(response.status_code)
-            self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
+            # Extract Token Usage
+            usage = response.usage_metadata
+            total_tokens = usage.total_token_count if usage else 0
 
-            if response.status_code == 200:
-                result = response.json()
-                result["api_info"] = {
-                    "key_index": selected_index,
-                    "day_usage": API_USAGE[selected_key]["day_count"]
-                }
-                self.wfile.write(json.dumps(result).encode())
-            else:
-                self.wfile.write(response.content)
+            # Update Usage Stats
+            API_USAGE[selected_key]["min_req"] += 1
+            API_USAGE[selected_key]["day_req"] += 1
+            API_USAGE[selected_key]["min_tokens"] += total_tokens
+
+            # Send Success Response
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            final_res = {
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": response.text
+                    }
+                }],
+                "usage": {
+                    "total_tokens": total_tokens,
+                    "prompt_tokens": usage.prompt_token_count if usage else 0,
+                    "completion_tokens": usage.candidates_token_count if usage else 0
+                },
+                "api_index": f"Key-{selected_index}",
+                "model": "gemma-3-27b"
+            }
+            self.wfile.write(json.dumps(final_res).encode())
 
         except Exception as e:
-            self.send_error_response(500, f"Server Error: {str(e)}")
+            self.send_error_res(500, f"Error: {str(e)}")
 
-    def send_error_response(self, code, message):
+    def send_error_res(self, code, message):
         self.send_response(code)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps({"error": message}).encode())
