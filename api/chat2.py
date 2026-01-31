@@ -20,7 +20,7 @@ class handler(BaseHTTPRequestHandler):
             system_prompt = post_data.get('system', "You are a helpful assistant.")
             history = post_data.get('history', [])
 
-            # Load Keys from Vercel Env
+            # Get API Keys from Vercel Environment
             all_keys = os.environ.get("MY_CODER_BOL_AI", "").split(",")
             all_keys = [k.strip() for k in all_keys if k.strip()]
 
@@ -35,86 +35,85 @@ class handler(BaseHTTPRequestHandler):
             selected_key = None
             selected_index = 0
 
-            # --- Key Rotation & Limit Logic ---
+            # --- Key Selection Logic (30 RPM, 14000 RPD, 15000 TPM) ---
             for i, key in enumerate(all_keys):
                 if key not in API_USAGE:
-                    API_USAGE[key] = {
-                        "min": current_minute, "min_req": 0, "min_tokens": 0,
-                        "day": current_day, "day_req": 0
-                    }
+                    API_USAGE[key] = {"min": current_minute, "min_req": 0, "min_tokens": 0, "day": current_day, "day_req": 0}
 
-                # Minute reset
                 if API_USAGE[key]["min"] != current_minute:
                     API_USAGE[key]["min"] = current_minute
                     API_USAGE[key]["min_req"] = 0
                     API_USAGE[key]["min_tokens"] = 0
                 
-                # Day reset
                 if API_USAGE[key]["day"] != current_day:
                     API_USAGE[key]["day"] = current_day
                     API_USAGE[key]["day_req"] = 0
 
-                # Check all 3 limits: 30 RPM, 14000 RPD, 15000 TPM
                 if (API_USAGE[key]["min_req"] < 30 and 
                     API_USAGE[key]["day_req"] < 14000 and 
                     API_USAGE[key]["min_tokens"] < 15000):
-                    
                     selected_key = key
                     selected_index = i + 1
                     break
 
             if not selected_key:
-                self.send_error_res(429, "All keys are at their limit. Try again in 1 minute.")
+                self.send_error_res(429, "All keys limit reached. Try after 1 minute.")
                 return
 
-            # --- Google AI Config ---
+            # --- Google GenAI Configuration ---
             genai.configure(api_key=selected_key)
-            
-            # Model Name: Aapke dashboard ke mutabik 'gemma-3-27b'
-            model = genai.GenerativeModel(
-                model_name="gemma-3-27b", 
-                system_instruction=system_prompt
-            )
 
-            # Chat formatting
+            # Gemma 3 ke liye possible names jo Google accept karta hai
+            # Pehla wala sabse zyada chances wala hai
+            possible_model_names = ["gemma-3-27b", "models/gemma-3-27b", "gemma-3-27b-it"]
+            
+            response = None
+            error_msg = ""
+
+            # Chat history format convert karna
             chat_history = []
             for h in history:
                 role = "user" if h['role'] == "user" else "model"
                 chat_history.append({"role": role, "parts": [h['content']]})
 
-            # Token calculation before sending (for TPM tracking)
-            # Hum ek andaza lagate hain ya model.count_tokens use karte hain
-            try:
-                msg_tokens = model.count_tokens(user_msg).total_tokens
-            except:
-                msg_tokens = len(user_msg) // 4 # Fallback
+            # Teeno model names try karega jab tak 200 OK na mil jaye
+            for m_name in possible_model_names:
+                try:
+                    model = genai.GenerativeModel(model_name=m_name, system_instruction=system_prompt)
+                    chat = model.start_chat(history=chat_history)
+                    response = chat.send_message(user_msg)
+                    if response:
+                        actual_model_used = m_name
+                        break
+                except Exception as e:
+                    error_msg = str(e)
+                    continue # Agla name try karein agar 404 aaye
 
-            chat = model.start_chat(history=chat_history)
-            response = chat.send_message(user_msg)
+            if not response:
+                self.send_error_res(404, f"Google Models (Gemma 3) Not Found. Last error: {error_msg}")
+                return
 
-            # Update usage stats
-            res_tokens = len(response.text) // 4
-            total_tokens_used = msg_tokens + res_tokens
-            
+            # --- Usage Tracking Update ---
+            prompt_tokens = len(user_msg) // 3 # Approx
+            res_tokens = len(response.text) // 3 # Approx
+            total_tokens = prompt_tokens + res_tokens
+
             API_USAGE[selected_key]["min_req"] += 1
             API_USAGE[selected_key]["day_req"] += 1
-            API_USAGE[selected_key]["min_tokens"] += total_tokens_used
+            API_USAGE[selected_key]["min_tokens"] += total_tokens
 
-            # Send JSON response
+            # --- Success Response ---
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            
-            res_data = {
+            self.wfile.write(json.dumps({
                 "choices": [{"message": {"role": "assistant", "content": response.text}}],
                 "api_index": f"Key-{selected_index}",
-                "usage": {"total_tokens": total_tokens_used}
-            }
-            self.wfile.write(json.dumps(res_data).encode())
+                "model_used": actual_model_used
+            }).encode())
 
         except Exception as e:
-            # Error return karega agar fir bhi 404 aaye
-            self.send_error_res(500, str(e))
+            self.send_error_res(500, f"Critical Error: {str(e)}")
 
     def send_error_res(self, code, message):
         self.send_response(code)
