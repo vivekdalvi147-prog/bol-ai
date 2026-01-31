@@ -1,12 +1,10 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import os
+import google.generativeai as genai # Stable Library
 from datetime import datetime
-from google import genai
-from google.genai import types
 
-# Global Dictionary to track usage
-# Format: { "API_KEY": {"min": "HH:MM", "min_req": 0, "min_tokens": 0, "day": "YYYY-MM-DD", "day_req": 0} }
+# Usage tracking data
 API_USAGE = {}
 
 class handler(BaseHTTPRequestHandler):
@@ -22,12 +20,12 @@ class handler(BaseHTTPRequestHandler):
             system_prompt = post_data.get('system', "You are a helpful assistant.")
             history = post_data.get('history', [])
 
-            # Load API Keys from Environment
+            # API Keys load karna
             all_keys = os.environ.get("MY_CODER_BOL_AI", "").split(",")
             all_keys = [k.strip() for k in all_keys if k.strip()]
 
             if not all_keys:
-                self.send_error_res(500, "No API Keys found in environment variable MY_CODER_BOL_AI")
+                self.send_error_res(500, "API Keys missing in environment")
                 return
 
             now = datetime.now()
@@ -37,7 +35,7 @@ class handler(BaseHTTPRequestHandler):
             selected_key = None
             selected_index = 0
 
-            # Logic to find available key based on limits
+            # Check Limits for each key
             for i, key in enumerate(all_keys):
                 if key not in API_USAGE:
                     API_USAGE[key] = {
@@ -45,18 +43,17 @@ class handler(BaseHTTPRequestHandler):
                         "day": current_day, "day_req": 0
                     }
 
-                # Reset Minute Limits if minute changed
+                # Reset logic
                 if API_USAGE[key]["min"] != current_minute:
                     API_USAGE[key]["min"] = current_minute
                     API_USAGE[key]["min_req"] = 0
                     API_USAGE[key]["min_tokens"] = 0
-
-                # Reset Daily Limits if day changed
+                
                 if API_USAGE[key]["day"] != current_day:
                     API_USAGE[key]["day"] = current_day
                     API_USAGE[key]["day_req"] = 0
 
-                # Check Constraints: 30 requests/min, 14000 requests/day, 15000 tokens/min
+                # Limits: 30 RPM, 14000 RPD, 15000 TPM
                 if (API_USAGE[key]["min_req"] < 30 and 
                     API_USAGE[key]["day_req"] < 14000 and 
                     API_USAGE[key]["min_tokens"] < 15000):
@@ -66,65 +63,56 @@ class handler(BaseHTTPRequestHandler):
                     break
 
             if not selected_key:
-                self.send_error_res(429, "All API keys reached their limit (RPM/TPM/RPD). Try again later.")
+                self.send_error_res(429, "All keys exhausted for this minute/day.")
                 return
 
-            # Initialize Google GenAI Client
-            client = genai.Client(api_key=selected_key)
-
-            # Format History for Gemini (User/Model roles)
-            # GenAI uses 'user' and 'model'
-            formatted_contents = []
-            for h in history:
-                role = "model" if h['role'] == "assistant" else "user"
-                formatted_contents.append(types.Content(role=role, parts=[types.Part.from_text(text=h['content'])]))
+            # Setup Google AI
+            genai.configure(api_key=selected_key)
             
-            # Add current user message
-            formatted_contents.append(types.Content(role="user", parts=[types.Part.from_text(text=user_msg)]))
-
-            # Call API
-            response = client.models.generate_content(
-                model="Gemma 3 27B",
-                contents=formatted_contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    max_output_tokens=1000 # Aap ise adjust kar sakte hain
-                )
+            # Gemma 3 27B handle karne ke liye model setup
+            # Note: Agar 'gemma-3-27b' error de, to 'gemini-1.5-flash' try karein test ke liye
+            model = genai.GenerativeModel(
+                model_name="gemma-3-27b", 
+                system_instruction=system_prompt
             )
 
-            # Extract Token Usage
-            usage = response.usage_metadata
-            total_tokens = usage.total_token_count if usage else 0
+            # History format change (Google format: user -> parts, model -> parts)
+            chat_history = []
+            for h in history:
+                role = "user" if h['role'] == "user" else "model"
+                chat_history.append({"role": role, "parts": [h['content']]})
 
-            # Update Usage Stats
+            chat = model.start_chat(history=chat_history)
+            
+            # API Call
+            response = chat.send_message(user_msg)
+
+            # Token Calculation (Usage tracking)
+            # Google response me usage_metadata deta hai
+            prompt_tokens = model.count_tokens(user_msg).total_tokens
+            res_tokens = model.count_tokens(response.text).total_tokens
+            total_tokens = prompt_tokens + res_tokens
+
+            # Update usage stats
             API_USAGE[selected_key]["min_req"] += 1
             API_USAGE[selected_key]["day_req"] += 1
             API_USAGE[selected_key]["min_tokens"] += total_tokens
 
-            # Send Success Response
+            # Success response
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             
-            final_res = {
-                "choices": [{
-                    "message": {
-                        "role": "assistant",
-                        "content": response.text
-                    }
-                }],
-                "usage": {
-                    "total_tokens": total_tokens,
-                    "prompt_tokens": usage.prompt_token_count if usage else 0,
-                    "completion_tokens": usage.candidates_token_count if usage else 0
-                },
-                "api_index": f"Key-{selected_index}",
-                "model": "gemma-3-27b"
+            output = {
+                "choices": [{"message": {"role": "assistant", "content": response.text}}],
+                "usage": {"total_tokens": total_tokens},
+                "api_index": f"Key-{selected_index}"
             }
-            self.wfile.write(json.dumps(final_res).encode())
+            self.wfile.write(json.dumps(output).encode())
 
         except Exception as e:
-            self.send_error_res(500, f"Error: {str(e)}")
+            # Error hone par response dikhayega taki debug kar sakein
+            self.send_error_res(500, f"Google API Error: {str(e)}")
 
     def send_error_res(self, code, message):
         self.send_response(code)
