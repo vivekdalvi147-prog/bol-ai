@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- UPGRADE: Added viewport-fit=cover and interactive-widget to handle mobile keyboards better -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>bol-ai | Global Reasoning Engine (Pro v1.4)</title>
+    
+    <!-- 
+        ARCHITECT: VIVEK DALVI
+        SYSTEM: BOL.AI REASONING CORE
+        VERSION: 1.4 (Optimized Mobile + Enhanced Voice + History Fix)
+        
+        CHANGELOG v1.4:
+        - [FIX] Mobile viewport layout using 100dvh
+        - [FIX] LocalStorage JSON parsing safety for History
+        - [FIX] "New Session" hard reset logic
+        - [UPGRADE] Smart Voice Selection (Natural sounding logic)
+        - [UPGRADE] Text Normalization for Voice (Removes Markdown symbols)
+        - [UI] Expanded Sidebar & Touch Targets
+    -->
+
+    <!-- External Assets -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Rendering Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+    
+    <!-- MATH RENDERING (KaTeX) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Firebase SDK (Compat - Preserved as requested) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* --- DESIGN SYSTEM START --- */
+        :root {
+            /* Core Palette */
+            --bg: #030508; 
+            --sidebar-bg: #050505; 
+            --accent: #00f2ff; 
+            --accent-glow: rgba(0, 242, 255, 0.4);
+            --secondary: #7000ff;
+            
+            /* UI Elements */
+            --glass: rgba(255, 255, 255, 0.05); 
+            --glass-strong: rgba(20, 20, 25, 0.95);
+            --border: rgba(255, 255, 255, 0.12);
+            --border-hover: rgba(255, 255, 255, 0.25);
+            
+            /* Typography */
+            --text: #ffffff; 
+            --text-dim: #94a3b8; 
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            
+            /* Messages */
+            --msg-user: #1e293b; 
+            --msg-ai: #0f172a; 
+            --card-glow: rgba(0, 242, 255, 0.08);
+            
+            /* Status */
+            --error: #ff3333; 
+            --success: #00ff88; 
+            --warning: #ffcc00;
+
+            /* Dimensions */
+            --header-height: 60px;
+            --input-area-height: auto;
+        }
+
+        /* THEME: Light */
+        [data-theme="light"] {
+            --bg: #f5f7fa; 
+            --sidebar-bg: #ffffff; 
+            --accent: #0066ff; 
+            --accent-glow: rgba(0, 102, 255, 0.4);
+            --secondary: #6200ea;
+            --glass: rgba(0, 0, 0, 0.05); 
+            --glass-strong: rgba(255, 255, 255, 0.95);
+            --border: rgba(0, 0, 0, 0.1); 
+            --border-hover: rgba(0, 0, 0, 0.2);
+            --text: #0f172a;
+            --text-dim: #475569; 
+            --msg-user: #e2e8f0; 
+            --msg-ai: #ffffff; 
+            --card-glow: rgba(0, 102, 255, 0.05);
+        }
+
+        /* THEME: Cyber */
+        [data-theme="cyber"] {
+            --bg: #050505; 
+            --sidebar-bg: #000000; 
+            --accent: #00ff00; 
+            --accent-glow: rgba(0, 255, 0, 0.5);
+            --secondary: #ff00ff;
+            --glass: rgba(0, 255, 0, 0.05); 
+            --glass-strong: rgba(0, 0, 0, 0.95);
+            --border: #00ff00; 
+            --text: #00ff00;
+            --text-dim: #008f00; 
+            --msg-user: #001100; 
+            --msg-ai: #000000;
+        }
+
+        /* --- GLOBAL RESETS & TYPOGRAPHY --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); -webkit-tap-highlight-color: transparent; }
+        
+        html, body { 
+            height: 100dvh; /* UPGRADE: Mobile viewport fix */
+            width: 100vw;
+            overflow: hidden; 
+            background: var(--bg); 
+            color: var(--text);
+            font-size: 16px;
+        }
+
+        /* SCROLLBAR CUSTOMIZATION */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* --- LAYOUT STRUCTURE --- */
+        #app-root {
+            display: flex;
+            height: 100dvh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- SIDEBAR (Enhanced for Mobile & Touch) --- */
+        #sidebar { 
+            width: 320px; 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 12000; 
+            flex-shrink: 0;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (max-width: 768px) { 
+            #sidebar { 
+                position: absolute; 
+                height: 100dvh; 
+                left: 0; 
+                transform: translateX(-100%);
+                width: 85%;
+                max-width: 320px;
+                box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+            } 
+            #sidebar.open { transform: translateX(0); } 
+        }
+
+        .sidebar-header { 
+            padding: 25px 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border); 
+        }
+        
+        .logo { 
+            font-size: 1.8rem; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent), var(--secondary)); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            letter-spacing: -0.5px; 
+        }
+
+        /* Auth Section in Sidebar */
+        .auth-section { padding: 20px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .auth-form-in-sidebar .form-group { margin-bottom: 12px; }
+        .auth-form-in-sidebar input { 
+            width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); 
+            background: rgba(255,255,255,0.05); color: var(--text); outline: none; font-size: 0.9rem;
+        }
+        .auth-form-in-sidebar input:focus { border-color: var(--accent); }
+        
+        .auth-btn { 
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent); 
+            background: rgba(0, 242, 255, 0.05); color: var(--accent); cursor: pointer; 
+            font-weight: 700; transition: 0.3s; font-size: 0.9rem; margin-top: 5px;
+        }
+        .auth-btn:hover { background: var(--accent); color: #000; }
+        .auth-toggle { font-size: 0.8rem; text-align: center; margin-top: 12px; cursor: pointer; text-decoration: underline; color: var(--text-dim); }
+        .user-info { font-size: 0.85rem; color: var(--text-dim); text-align: center; margin-bottom: 15px; font-weight: 600; word-break: break-all; }
+        .logout-btn { border-color: var(--error); color: var(--error); background: transparent; }
+        .logout-btn:hover { background: var(--error); color: #fff; }
+
+        /* New Chat Button */
+        .new-chat-btn { 
+            margin: 20px; 
+            padding: 14px; 
+            border: 1px dashed var(--border); 
+            border-radius: 12px; 
+            background: var(--glass); 
+            color: var(--text); 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 10px; 
+            font-weight: 600; 
+            transition: 0.3s; 
+            font-size: 0.9rem; 
+        }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.08); }
+
+        /* History List (Fix: Expanded touch targets) */
+        #history-list { flex: 1; overflow-y: auto; padding: 0 10px; }
+        .history-label { padding: 10px 10px 5px; font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-top: 10px; }
+        
+        .history-item { 
+            padding: 14px 15px; 
+            margin-bottom: 4px;
+            font-size: 0.9rem; 
+            color: var(--text-dim); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+        .history-item:hover { background: var(--glass); color: var(--text); border-color: rgba(255,255,255,0.05); }
+        .history-item.active { background: var(--card-glow); color: var(--accent); border-color: var(--accent); }
+        
+        .history-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .delete-btn { color: var(--error); opacity: 0; transition: 0.2s; padding: 5px; font-size: 0.9rem; }
+        .history-item:hover .delete-btn { opacity: 0.7; }
+        .delete-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        .sidebar-footer { padding: 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
+        .sidebar-link { padding: 10px; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; transition: 0.2s; border-radius: 6px; }
+        .sidebar-link:hover { background: var(--glass); color: var(--text); }
+
+        /* --- MAIN CONTENT AREA --- */
+        #main-content { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: var(--bg); 
+            position: relative; 
+            height: 100dvh; 
+            width: 100%;
+        }
+        
+        /* Header */
+        header { 
+            padding: 0 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            background: var(--glass-strong);
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px); 
+            z-index: 100; 
+            height: var(--header-height); 
+            flex-shrink: 0; 
+        }
+
+        .toggle-btn { display: none; font-size: 1.2rem; cursor: pointer; padding: 10px; color: var(--text); }
+        @media (max-width: 768px) { .toggle-btn { display: block; } }
+
+        /* Model Selector */
+        .model-selector-container { position: relative; max-width: 250px; width: 100%; }
+        #modelSelector {
+            width: 100%;
+            background-color: transparent; 
+            color: var(--text); 
+            border: 1px solid var(--border);
+            border-radius: 20px; 
+            padding: 8px 35px 8px 15px; 
+            font-size: 0.85rem;
+            font-weight: 600; 
+            cursor: pointer; 
+            appearance: none; 
+            transition: all 0.3s;
+        }
+        #modelSelector:hover { border-color: var(--accent); background: var(--glass); }
+        #modelSelector:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 10px var(--card-glow); }
+        .model-arrow { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-dim); font-size: 0.8rem; }
+
+        /* --- CHAT AREA (FIXED MOBILE SCROLLING) --- */
+        #chat-container { 
+            flex: 1; 
+            overflow-y: auto; 
+            overflow-x: hidden;
+            padding: 20px 20px 40px 20px; /* Extra bottom padding for scroll space */
+            display: flex; 
+            flex-direction: column; 
+            gap: 24px; 
+            scroll-behavior: smooth;
+        }
+        
+        .msg-wrapper { max-width: 850px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .message { 
+            padding: 16px 20px; 
+            border-radius: 18px; 
+            line-height: 1.7; 
+            font-size: 0.95rem; 
+            position: relative; 
+            word-wrap: break-word; 
+            max-width: 92%;
+        }
+        
+        .ai-msg { 
+            background: var(--msg-ai); 
+            border: 1px solid var(--border); 
+            border-bottom-left-radius: 4px; 
+            align-self: flex-start;
+        }
+        .user-msg { 
+            background: var(--msg-user); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            align-self: flex-end; 
+            border-bottom-right-radius: 4px; 
+            color: var(--text); 
+        }
+        .user-msg h1, .user-msg h2, .user-msg h3 { font-size: 1rem; margin: 0; }
+        
+        .msg-footer { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-top: 12px; font-size: 0.7rem; color: var(--text-dim); 
+            border-top: 1px solid var(--border); padding-top: 8px; 
+        }
+        .token-tag { background: rgba(0, 242, 255, 0.1); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+
+        /* Code Blocks */
+        pre { margin: 15px 0; border-radius: 10px; overflow: hidden; background: #080a10 !important; border: 1px solid var(--border); }
+        .code-header-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: rgba(255,255,255,0.08); padding: 6px 15px; 
+            border-bottom: 1px solid var(--border); font-family: monospace;
+        }
+        .code-lang { font-size: 0.7rem; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+        .code-actions { display: flex; gap: 15px; }
+        .code-btn { cursor: pointer; color: var(--text-dim); font-size: 0.8rem; display: flex; align-items: center; gap: 5px; transition: 0.2s; }
+        .code-btn:hover { color: #fff; }
+
+        /* Thinking Animation */
+        .thinking-container { 
+            display: none; justify-content: center; margin: 10px 0; 
+            width: 100%; max-width: 850px; margin: 0 auto;
+        }
+        .thinking-box { 
+            display: flex; align-items: center; gap: 10px; 
+            padding: 8px 20px; background: var(--sidebar-bg); 
+            border-radius: 30px; border: 1px solid var(--accent); 
+            box-shadow: 0 0 15px var(--card-glow);
+        }
+        .pulse-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.4s infinite ease-in-out both; }
+        .pulse-dot:nth-child(1) { animation-delay: -0.32s; }
+        .pulse-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes pulse { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        .thinking-text { font-size: 0.75rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+
+        /* --- INPUT AREA (FIXED BOTTOM) --- */
+        .input-area { 
+            padding: 15px 20px; 
+            background: var(--bg); 
+            border-top: 1px solid var(--border); 
+            flex-shrink: 0; 
+            z-index: 500;
+            width: 100%;
+        }
+        
+        .input-wrapper { 
+            display: flex; 
+            background: var(--sidebar-bg); 
+            border: 1px solid var(--border); 
+            padding: 8px 8px 8px 16px; 
+            border-radius: 24px; 
+            gap: 10px; 
+            align-items: flex-end; 
+            transition: 0.3s; 
+            max-width: 850px; 
+            margin: 0 auto; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .input-wrapper:focus-within { border-color: var(--accent); box-shadow: 0 0 15px var(--card-glow); }
+        
+        textarea { 
+            flex: 1; 
+            background: transparent; 
+            border: none; 
+            color: var(--text); 
+            outline: none; 
+            resize: none; 
+            min-height: 24px; /* Matches line height + padding roughly */
+            max-height: 200px; 
+            overflow-y: auto; 
+            padding: 10px 0; 
+            line-height: 1.5; 
+            font-size: 1rem;
+        }
+        
+        .input-btn { 
+            width: 40px; height: 40px; 
+            border-radius: 50%; 
+            border: none; 
+            background: transparent; 
+            color: var(--text-dim); 
+            cursor: pointer; 
+            display: grid; place-items: center; 
+            transition: 0.2s; font-size: 1.1rem; flex-shrink: 0;
+        }
+        .input-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        
+        .send-btn { background: var(--accent); color: #000; }
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 0 10px var(--accent); color: #000; }
+        .stop-btn { background: var(--error); color: #fff; animation: pulseRed 2s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 51, 51, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0); } }
+
+        /* --- OVERLAYS & MODALS --- */
+        #overlay-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(3px); z-index: 11000; }
+        
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 90%; max-width: 550px; background: var(--sidebar-bg); 
+            border: 1px solid var(--border); padding: 30px; border-radius: 20px; 
+            z-index: 13000; box-shadow: 0 20px 60px rgba(0,0,0,0.6); 
+            max-height: 85dvh; overflow-y: auto; 
+        }
+        .modal h2 { margin-bottom: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .close-modal { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-dim); }
+        .close-modal:hover { color: var(--error); }
+        
+        /* Form Styles in Modal */
+        .form-label { display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; }
+        .form-input { width: 100%; padding: 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; margin-bottom: 20px; outline: none; }
+        .form-input:focus { border-color: var(--accent); }
+        .modal-btn { width: 100%; padding: 12px; background: var(--accent); color: #000; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; }
+
+        /* --- VOICE OVERLAY (GEMINI STYLE) --- */
+        #voice-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 20000;
+            flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(20px);
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .voice-orb-container { position: relative; width: 180px; height: 180px; display: flex; justify-content: center; align-items: center; margin-bottom: 30px; }
+        .voice-orb {
+            width: 80px; height: 80px; 
+            background: radial-gradient(circle at 30% 30%, var(--accent), var(--secondary));
+            border-radius: 50%; 
+            box-shadow: 0 0 50px var(--accent), inset 0 0 20px rgba(255,255,255,0.5);
+            animation: breathe 3s infinite ease-in-out;
+            position: relative; z-index: 10;
+        }
+        .voice-wave {
+            position: absolute; border: 2px solid var(--accent); width: 100%; height: 100%;
+            border-radius: 50%; opacity: 0; z-index: 1; pointer-events: none;
+        }
+        .voice-active .voice-wave { animation: ripple 1.5s infinite ease-out; }
+        .voice-active .voice-wave:nth-child(2) { animation-delay: 0.4s; }
+        .voice-active .voice-wave:nth-child(3) { animation-delay: 0.8s; }
+
+        @keyframes breathe { 0% { transform: scale(0.95); box-shadow: 0 0 40px var(--accent); } 50% { transform: scale(1.05); box-shadow: 0 0 80px var(--accent), 0 0 30px var(--secondary); } 100% { transform: scale(0.95); box-shadow: 0 0 40px var(--accent); } }
+        @keyframes ripple { 0% { transform: scale(0.5); opacity: 0.8; border-width: 4px; } 100% { transform: scale(2.2); opacity: 0; border-width: 0px; } }
+
+        .voice-status { font-size: 1.5rem; color: #fff; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+        .voice-sub { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 30px; }
+        
+        .voice-controls { display: flex; flex-direction: column; gap: 15px; align-items: center; width: 100%; max-width: 300px; }
+        .voice-select { background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: #fff; padding: 10px; border-radius: 8px; width: 100%; text-align: center; cursor: pointer; }
+        .voice-btn-row { display: flex; gap: 15px; width: 100%; justify-content: center; }
+        .voice-btn { padding: 10px 25px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: #fff; cursor: pointer; transition: 0.3s; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        .voice-btn.exit:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+        .voice-btn.mute:hover { background: var(--error); border-color: var(--error); }
+
+        /* Maintenance Screen */
+        #maintenance-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 99999; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- OVERLAYS -->
+    <div id="overlay-backdrop" onclick="App.ui.closeModals()"></div>
+
+    <!-- MAINTENANCE -->
+    <div id="maintenance-screen">
+        <i class="fas fa-microchip" style="font-size: 4rem; color: var(--accent); margin-bottom: 20px;"></i>
+        <h1 style="color: var(--accent);">SYSTEM UPDATE</h1>
+        <p style="color: var(--text-dim); margin-top: 10px;">The logic core is currently upgrading.</p>
+    </div>
+
+    <!-- VOICE OVERLAY -->
+    <div id="voice-overlay">
+        <div class="voice-orb-container" id="voice-orb-anim">
+            <div class="voice-wave"></div><div class="voice-wave"></div><div class="voice-wave"></div>
+            <div class="voice-orb"></div>
+        </div>
+        <div class="voice-status" id="voice-status-text">Listening...</div>
+        <div class="voice-sub" id="voice-sub-text">Speak naturally to bol-ai</div>
+        
+        <div class="voice-controls">
+            <!-- Dynamic Voice Population -->
+            <select id="voicePersonaSelector" class="voice-select" onchange="App.voice.setPersona(this.value)">
+                <!-- Options populated by JS -->
+                <option value="auto">Auto (Best Quality)</option>
+            </select>
+            <div class="voice-btn-row">
+                <button class="voice-btn mute" onclick="App.voice.stopSpeaking()">Silence</button>
+                <button class="voice-btn exit" onclick="App.voice.toggle(false)">End Session</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP LAYOUT -->
+    <div id="app-root">
+        
+        <!-- SIDEBAR -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">bol-ai 1.4</span>
+                <i class="fas fa-times toggle-btn" onclick="App.ui.toggleSidebar()"></i>
+            </div>
+
+            <!-- Auth Section -->
+            <div class="auth-section" id="auth-container">
+                <!-- Injected via JS -->
+            </div>
+
+            <button class="new-chat-btn" onclick="App.chat.newSession()">
+                <i class="fas fa-plus-circle"></i> Initialize Logic Session
+            </button>
+            
+            <div style="padding: 0 15px;"><div class="history-label">Memory Banks</div></div>
+            <div id="history-list">
+                <!-- History Items Injected Here -->
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-link" onclick="App.ui.openModal('settingsModal')"><i class="fas fa-cog"></i> Settings</div>
+                <div class="sidebar-link" onclick="App.ui.openModal('aboutModal')"><i class="fas fa-info-circle"></i> About bol-ai</div>
+                <div class="sidebar-link" onclick="App.admin.secretTrigger()" style="opacity:0.5; font-size:0.7rem;">Dev Build 1.4</div>
+            </div>
+        </aside>
+
+        <!-- MAIN INTERFACE -->
+        <main id="main-content">
+            <header>
+                <i class="fas fa-bars toggle-btn" onclick="App.ui.toggleSidebar()"></i>
+                
+                <div class="model-selector-container">
+                    <select id="modelSelector" onchange="App.chat.setModel(this.value)">
+                        <!-- Populated via JS -->
+                    </select>
+                    <i class="fas fa-chevron-down model-arrow"></i>
+                </div>
+
+                <div style="display:flex; gap:15px; align-items:center;">
+                   <i class="fas fa-save" style="cursor:pointer; color:var(--text-dim); transition:0.2s;" onclick="App.chat.manualSave()" title="Save Session"></i>
+                </div>
+            </header>
+
+            <!-- CHAT AREA -->
+            <div id="chat-container">
+                <!-- Dynamic Content -->
+                <div class="msg-wrapper default-welcome">
+                    <div class="message ai-msg">
+                        <h3><i class="fas fa-robot"></i> bol-ai 1.4 Online</h3>
+                        <p>Logic Core initialized. Mobile layout fixed. Voice matrix optimized.</p>
+                        <p style="font-size:0.8rem; color:var(--text-dim);">Created by <b>Vivek Dalvi</b>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THINKING INDICATOR -->
+            <div class="thinking-container" id="thinking-indicator">
+                <div class="thinking-box">
+                    <div class="pulse-dot"></div><div class="pulse-dot"></div><div class="pulse-dot"></div>
+                    <span class="thinking-text">REASONING...</span>
+                </div>
+            </div>
+
+            <!-- INPUT AREA -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="file" id="fileUpload" style="display:none;" onchange="App.files.handle(event)">
+                    <button class="input-btn" onclick="document.getElementById('fileUpload').click()" title="Upload Context"><i class="fas fa-paperclip"></i></button>
+                    
+                    <textarea id="userInput" rows="1" placeholder="Enter logic query..." oninput="App.ui.autoResize(this)" onkeydown="App.chat.handleEnter(event)"></textarea>
+                    
+                    <!-- Voice Trigger -->
+                    <button class="input-btn" onclick="App.voice.toggle(true)" style="color:var(--accent);" title="Voice Mode"><i class="fas fa-microphone"></i></button>
+                    
+                    <!-- Send/Stop -->
+                    <button class="input-btn send-btn" id="sendBtn" onclick="App.chat.send()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 8px; font-size: 0.65rem; color: var(--text-dim); opacity: 0.6;">
+                    bol-ai 1.4 | Protected by Logic Privacy Protocol
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal" id="settingsModal">
+        <span class="close-modal" onclick="App.ui.closeModals()">&times;</span>
+        <h2>System Configuration</h2>
+        
+        <label class="form-label">User Identity</label>
+        <input type="text" id="settingName" class="form-input" placeholder="How should AI address you?">
+        
+        <label class="form-label">System Prompt (Persona)</label>
+        <textarea id="settingPrompt" class="form-input" style="min-height:80px;" placeholder="e.g. Be concise and professional."></textarea>
+        
+        <label class="form-label">Interface Theme</label>
+        <select id="settingTheme" class="form-input" onchange="App.ui.setTheme(this.value)">
+            <option value="dark">Dark Protocol (Default)</option>
+            <option value="light">Light Mode</option>
+            <option value="cyber">Cyber Hacker</option>
+        </select>
+        
+        <label class="form-label">Language Model</label>
+        <select id="settingLang" class="form-input">
+            <option value="English">English</option>
+            <option value="Hindi">Hindi (हिंदी)</option>
+            <option value="Marathi">Marathi (मराठी)</option>
+            <option value="Spanish">Spanish</option>
+            <option value="French">French</option>
+        </select>
+        
+        <button class="modal-btn" onclick="App.user.saveSettings()">Save Configuration</button>
+    </div>
+
+    <!-- ABOUT MODAL -->
+    <div class="modal" id="aboutModal">
+        <span class="close-modal" onclick="App.ui.closeModals()">&times;</span>
+        <h2>About bol-ai</h2>
+        <p style="margin-bottom:15px; line-height:1.6;"><strong>bol-ai</strong> is a sovereign reasoning engine built by <span style="color:var(--accent);">Vivek Dalvi</span>. It focuses on privacy, speed, and logic simulation.</p>
+        <ul style="margin-left:20px; margin-bottom:15px; color:var(--text-dim);">
+            <li>Version: 1.4 (Stable)</li>
+            <li>Architecture: Client-Side Logic + Firebase</li>
+            <li>Voice: Web Speech API (Optimized)</li>
+        </ul>
+        <p style="font-size:0.8rem; color:var(--text-dim);">No personal data is used for model training.</p>
+    </div>
+
+    <!-- ADMIN MODAL -->
+    <div class="modal" id="adminModal">
+        <span class="close-modal" onclick="App.ui.closeModals()">&times;</span>
+        <h2 style="color:var(--secondary);">Developer Console</h2>
+        <input type="text" id="appName" class="form-input" placeholder="App Name">
+        <input type="text" id="appKeys" class="form-input" placeholder="Trigger Keywords (comma sep)">
+        <textarea id="appCode" class="form-input" style="font-family:monospace; min-height:150px;" placeholder="return 'Hello World';"></textarea>
+        <button class="modal-btn" style="background:var(--secondary); color:#fff;" onclick="App.admin.deploy()">Deploy App</button>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC CORE -->
+    <script>
+        // --- CONFIGURATION ---
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
+
+        // --- GLOBAL APP STATE ---
+        const App = {
+            firebase: { auth: null, db: null, user: null },
+            state: {
+                currentSessionId: Date.now(),
+                chatHistory: [], // The current conversation
+                isGenerating: false,
+                abortController: null,
+                model: { id: 'default', name: 'Bol-AI 1.0 (General)' },
+                availableModels: [],
+                systemApps: [],
+                voiceActive: false
+            },
+            
+            // --- INITIALIZATION ---
+            init: function() {
+                // Init Firebase
+                firebase.initializeApp(FIREBASE_CONFIG);
+                this.firebase.auth = firebase.auth();
+                this.firebase.db = firebase.firestore();
+
+                // Listeners
+                this.firebase.auth.onAuthStateChanged(user => this.user.handleAuthChange(user));
+                this.data.loadSystem();
+                this.data.loadHistoryList();
+                this.ui.loadPreferences();
+                
+                // Voice Preload
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.getVoices();
+                    window.speechSynthesis.onvoiceschanged = () => this.voice.populateVoices();
+                }
+
+                // Handle Input Area resizing on mobile keyboard
+                if(window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', () => {
+                        window.scrollTo(0, 0); // Keep top aligned
+                    });
+                }
+            },
+
+            // --- UI CONTROLLERS ---
+            ui: {
+                toggleSidebar: () => {
+                    const sb = document.getElementById('sidebar');
+                    const overlay = document.getElementById('overlay-backdrop');
+                    sb.classList.toggle('open');
+                    if(window.innerWidth <= 768) {
+                        overlay.style.display = sb.classList.contains('open') ? 'block' : 'none';
+                    }
+                },
+                
+                openModal: (id) => {
+                    document.getElementById(id).style.display = 'block';
+                    document.getElementById('overlay-backdrop').style.display = 'block';
+                    // Load current settings if settings modal
+                    if(id === 'settingsModal') App.user.loadSettingsToUI();
+                },
+                
+                closeModals: () => {
+                    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+                    document.getElementById('overlay-backdrop').style.display = 'none';
+                    document.getElementById('sidebar').classList.remove('open');
+                },
+
+                autoResize: (el) => {
+                    el.style.height = 'auto';
+                    el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+                },
+
+                setTheme: (theme) => {
+                    document.body.setAttribute('data-theme', theme);
+                    localStorage.setItem('bol_theme', theme);
+                },
+
+                loadPreferences: () => {
+                    const theme = localStorage.getItem('bol_theme') || 'dark';
+                    document.body.setAttribute('data-theme', theme);
+                    if(document.getElementById('settingTheme')) document.getElementById('settingTheme').value = theme;
+                },
+
+                showThinking: (show) => {
+                    const el = document.getElementById('thinking-indicator');
+                    const btn = document.getElementById('sendBtn');
+                    el.style.display = show ? 'flex' : 'none';
+                    
+                    if(show) {
+                        btn.innerHTML = '<i class="fas fa-stop"></i>';
+                        btn.classList.add('stop-btn');
+                        btn.onclick = App.chat.stop;
+                        // Scroll to bottom when thinking starts
+                        const cont = document.getElementById('chat-container');
+                        cont.scrollTop = cont.scrollHeight;
+                    } else {
+                        btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                        btn.classList.remove('stop-btn');
+                        btn.onclick = App.chat.send;
+                    }
+                },
+
+                scrollToBottom: () => {
+                    const c = document.getElementById('chat-container');
+                    c.scrollTop = c.scrollHeight;
+                }
+            },
+
+            // --- CHAT LOGIC ---
+            chat: {
+                newSession: () => {
+                    // FIX: Hard reset logic
+                    App.state.currentSessionId = Date.now();
+                    App.state.chatHistory = [];
+                    App.state.isGenerating = false;
+                    if(App.state.abortController) App.state.abortController.abort();
+                    
+                    document.getElementById('chat-container').innerHTML = `
+                        <div class="msg-wrapper default-welcome">
+                            <div class="message ai-msg">
+                                <h3>New Logic Session</h3>
+                                <p>Ready for input.</p>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('userInput').value = '';
+                    App.ui.autoResize(document.getElementById('userInput'));
+                    App.ui.showThinking(false);
+                    if(window.innerWidth <= 768) App.ui.toggleSidebar();
+                },
+
+                send: async (textOverride = null) => {
+                    const inputEl = document.getElementById('userInput');
+                    const text = textOverride || inputEl.value.trim();
+                    if (!text) return;
+
+                    // Add User Message
+                    App.chat.appendMsg('user', text);
+                    App.state.chatHistory.push({ role: 'user', content: text });
+                    
+                    // Clear Input
+                    inputEl.value = '';
+                    App.ui.autoResize(inputEl);
+                    App.ui.showThinking(true);
+                    App.state.isGenerating = true;
+
+                    // Prepare Request
+                    App.state.abortController = new AbortController();
+                    const settings = JSON.parse(localStorage.getItem('bol_user_settings') || '{}');
+                    
+                    // SYSTEM PROMPT CONSTRUCTION
+                    let sysPrompt = `You are bol-ai. 
+                    User: ${settings.name || 'User'}. 
+                    Context: ${settings.instructions || ''}.
+                    Admin Note: ${App.state.adminNote || ''}
+                    Directives: Be concise, use Markdown.
+                    `;
+                    
+                    if(App.state.model.id !== 'default') {
+                        sysPrompt += `\nRole: ${App.state.model.knowledge || App.state.model.name}`;
+                    }
+
+                    try {
+                        const response = await fetch('/api/chat', { // Mock endpoint - in reality this hits backend
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            signal: App.state.abortController.signal,
+                            body: JSON.stringify({
+                                message: text,
+                                history: App.state.chatHistory.slice(-6), // Send last 6 turns context
+                                system: sysPrompt
+                            })
+                        });
+
+                        // Fallback logic for demo (since /api/chat isn't real in this HTML file)
+                        // In a real deployment, this block is replaced by actual API stream handling
+                        let aiText = "I am the local logic engine. Since I am running in a static file without a backend connection to the neural interface, I can only simulate responses. \n\n```javascript\nconsole.log('Connect backend for full intelligence');\n```";
+                        
+                        // Simulate delay
+                        await new Promise(r => setTimeout(r, 800));
+                        
+                        if(App.state.model.id !== 'default') {
+                            aiText = `[${App.state.model.name}] Processing: ` + aiText;
+                        }
+
+                        // Handle Voice vs Text
+                        if(App.state.voiceActive) {
+                            App.voice.speak(aiText);
+                        }
+                        
+                        await App.chat.typeEffect(aiText);
+                        App.state.chatHistory.push({ role: 'assistant', content: aiText });
+                        App.data.saveCurrentSession();
+
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            App.chat.appendMsg('ai', `**Error:** Connection failed. (${err.message})`);
+                        }
+                    } finally {
+                        App.state.isGenerating = false;
+                        App.ui.showThinking(false);
+                    }
+                },
+
+                stop: () => {
+                    if(App.state.abortController) App.state.abortController.abort();
+                    App.state.isGenerating = false;
+                    App.ui.showThinking(false);
+                    App.chat.appendMsg('ai', '_[Generation stopped by user]_');
+                    window.speechSynthesis.cancel();
+                },
+
+                appendMsg: (role, text) => {
+                    const cont = document.getElementById('chat-container');
+                    const welcome = cont.querySelector('.default-welcome');
+                    if(welcome) welcome.remove();
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'msg-wrapper';
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `message ${role}-msg`;
+                    msgDiv.innerHTML = marked.parse(text);
+                    
+                    // Formatting
+                    if(role === 'ai') App.chat.formatMsg(msgDiv);
+                    
+                    wrapper.appendChild(msgDiv);
+                    cont.appendChild(wrapper);
+                    App.ui.scrollToBottom();
+                },
+
+                typeEffect: async (text) => {
+                    const cont = document.getElementById('chat-container');
+                    const wrapper = document.createElement('div'); wrapper.className = 'msg-wrapper';
+                    const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+                    wrapper.appendChild(msgDiv);
+                    cont.appendChild(wrapper);
+
+                    // Split for typing
+                    const words = text.split(' ');
+                    let currentHtml = '';
+                    
+                    for(let i=0; i<words.length; i++) {
+                        if(!App.state.isGenerating) break; // Check stop flag
+                        currentHtml += words[i] + ' ';
+                        // Render Markdown every few words to prevent flicker, final render at end
+                        if(i % 3 === 0) msgDiv.innerHTML = marked.parse(currentHtml); 
+                        App.ui.scrollToBottom();
+                        await new Promise(r => setTimeout(r, 30)); // Typing speed
+                    }
+                    
+                    msgDiv.innerHTML = marked.parse(text);
+                    App.chat.formatMsg(msgDiv);
+                    
+                    // Token count footer
+                    const footer = document.createElement('div');
+                    footer.className = 'msg-footer';
+                    footer.innerHTML = `<span><span class="token-tag">${Math.ceil(text.length/4)} tokens</span></span>`;
+                    msgDiv.appendChild(footer);
+                    App.ui.scrollToBottom();
+                },
+
+                formatMsg: (el) => {
+                    // Syntax Highlighting
+                    el.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                        // Add Header
+                        const pre = block.parentElement;
+                        if(!pre.querySelector('.code-header-bar')) {
+                            const lang = block.className.replace('language-', '').toUpperCase() || 'CODE';
+                            const header = document.createElement('div');
+                            header.className = 'code-header-bar';
+                            header.innerHTML = `
+                                <span class="code-lang">${lang}</span>
+                                <div class="code-actions">
+                                    <span class="code-btn" onclick="App.files.copyCode(this)"><i class="fas fa-copy"></i> Copy</span>
+                                </div>
+                            `;
+                            pre.insertBefore(header, block);
+                        }
+                    });
+
+                    // Math Formatting
+                    renderMathInElement(el, {
+                        delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]
+                    });
+                },
+                
+                setModel: (id) => {
+                    if(id === 'default') {
+                        App.state.model = { id: 'default', name: 'Bol-AI 1.0 (General)' };
+                    } else {
+                        const m = App.state.availableModels.find(x => x.id === id);
+                        if(m) App.state.model = m;
+                    }
+                    App.chat.newSession(); // Reset context on model switch
+                },
+                
+                handleEnter: (e) => {
+                    if(e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        App.chat.send();
+                    }
+                },
+                
+                manualSave: () => {
+                    if(App.state.chatHistory.length === 0) return alert("Nothing to save.");
+                    App.data.saveCurrentSession();
+                    alert("Session snapshot saved to Memory Banks.");
+                }
+            },
+
+            // --- DATA & STORAGE (FIXED HISTORY) ---
+            data: {
+                loadSystem: () => {
+                    // Populate Models from Firestore (Simulated if offline)
+                    App.firebase.db.collection('models').where('public', '==', true).onSnapshot(snap => {
+                        const sel = document.getElementById('modelSelector');
+                        sel.innerHTML = '<option value="default">Bol-AI 1.0 (General)</option>';
+                        App.state.availableModels = [];
+                        snap.forEach(doc => {
+                            const d = doc.data();
+                            App.state.availableModels.push({id: doc.id, ...d});
+                            sel.innerHTML += `<option value="${doc.id}">${d.name}</option>`;
+                        });
+                    });
+                },
+
+                saveCurrentSession: () => {
+                    const hist = App.state.chatHistory;
+                    if(hist.length === 0) return;
+                    
+                    const id = App.state.currentSessionId;
+                    const title = hist.find(m => m.role === 'user')?.content.substring(0, 30) + '...' || 'New Chat';
+                    
+                    const sessionData = {
+                        id: id,
+                        title: title,
+                        messages: hist,
+                        timestamp: Date.now()
+                    };
+
+                    // Safe LocalStorage
+                    try {
+                        let storage = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                        // Update existing or add new
+                        const idx = storage.findIndex(s => s.id === id);
+                        if(idx > -1) storage[idx] = sessionData;
+                        else storage.unshift(sessionData);
+                        
+                        localStorage.setItem('bol_history', JSON.stringify(storage));
+                        App.data.loadHistoryList(); // Refresh sidebar
+                    } catch(e) {
+                        console.error("Storage Error", e);
+                    }
+                },
+
+                loadHistoryList: () => {
+                    const list = document.getElementById('history-list');
+                    list.innerHTML = '';
+                    
+                    try {
+                        const storage = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                        storage.sort((a,b) => b.timestamp - a.timestamp); // Newest first
+                        
+                        storage.forEach(s => {
+                            const item = document.createElement('div');
+                            item.className = 'history-item';
+                            if(s.id === App.state.currentSessionId) item.classList.add('active');
+                            
+                            item.innerHTML = `
+                                <div class="history-title"><i class="fas fa-message"></i> ${s.title}</div>
+                                <i class="fas fa-trash delete-btn" onclick="App.data.deleteSession(${s.id}, event)"></i>
+                            `;
+                            
+                            // FIX: Closure issue solved by calling distinct function
+                            item.onclick = () => App.data.loadSession(s.id);
+                            list.appendChild(item);
+                        });
+                    } catch(e) {
+                        list.innerHTML = '<div style="padding:10px; color:var(--error)">Memory Error</div>';
+                    }
+                },
+
+                loadSession: (id) => {
+                    try {
+                        const storage = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                        const session = storage.find(s => s.id === id);
+                        if(!session) return;
+                        
+                        App.state.currentSessionId = session.id;
+                        App.state.chatHistory = session.messages;
+                        
+                        // Re-render UI
+                        const cont = document.getElementById('chat-container');
+                        cont.innerHTML = ''; // Clear
+                        
+                        session.messages.forEach(msg => {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'msg-wrapper';
+                            const div = document.createElement('div');
+                            div.className = `message ${msg.role === 'user' ? 'user-msg' : 'ai-msg'}`;
+                            div.innerHTML = marked.parse(msg.content);
+                            if(msg.role === 'assistant') App.chat.formatMsg(div);
+                            wrapper.appendChild(div);
+                            cont.appendChild(wrapper);
+                        });
+                        
+                        App.ui.scrollToBottom();
+                        // Highlight active in sidebar
+                        App.data.loadHistoryList(); 
+                        if(window.innerWidth <= 768) App.ui.toggleSidebar();
+
+                    } catch(e) {
+                        alert("Failed to load session.");
+                    }
+                },
+
+                deleteSession: (id, e) => {
+                    e.stopPropagation();
+                    if(!confirm("Erase this memory bank?")) return;
+                    
+                    let storage = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                    storage = storage.filter(s => s.id !== id);
+                    localStorage.setItem('bol_history', JSON.stringify(storage));
+                    
+                    if(App.state.currentSessionId === id) App.chat.newSession();
+                    App.data.loadHistoryList();
+                }
+            },
+
+            // --- VOICE & SPEECH (OPTIMIZED) ---
+            voice: {
+                recognition: null,
+                selectedVoice: null,
+                
+                toggle: (forceOn = false) => {
+                    if (!window.webkitSpeechRecognition && !window.SpeechRecognition) {
+                        return alert("Browser does not support Voice Logic.");
+                    }
+                    
+                    if (App.state.voiceActive && !forceOn) {
+                        // Turn off
+                        App.voice.stopListening();
+                    } else {
+                        // Turn on
+                        App.state.voiceActive = true;
+                        document.getElementById('voice-overlay').style.display = 'flex';
+                        App.voice.startListening();
+                    }
+                },
+
+                populateVoices: () => {
+                    const voices = window.speechSynthesis.getVoices();
+                    const sel = document.getElementById('voicePersonaSelector');
+                    // We only want to populate once usually, or update if list changes
+                    if(sel.options.length > 1) return; 
+
+                    // Smart Filter: Look for "Google", "Microsoft", "Natural"
+                    const preferred = voices.filter(v => 
+                        v.name.includes('Google') || 
+                        v.name.includes('Natural') || 
+                        v.name.includes('Premium') ||
+                        v.lang.startsWith('en-')
+                    );
+                    
+                    preferred.forEach((v, index) => {
+                        const opt = document.createElement('option');
+                        opt.value = v.name;
+                        opt.textContent = `${v.name.replace('Microsoft', '').replace('Google', '')} (${v.lang})`;
+                        sel.appendChild(opt);
+                    });
+                },
+
+                setPersona: (name) => {
+                    const voices = window.speechSynthesis.getVoices();
+                    if (name === 'auto') {
+                        App.voice.selectedVoice = null; // Use auto logic
+                    } else {
+                        App.voice.selectedVoice = voices.find(v => v.name === name);
+                    }
+                },
+
+                startListening: () => {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    App.voice.recognition = new SpeechRecognition();
+                    App.voice.recognition.continuous = false;
+                    App.voice.recognition.interimResults = false;
+                    App.voice.recognition.lang = document.getElementById('settingLang').value === 'Hindi' ? 'hi-IN' : 'en-US';
+
+                    // Update UI
+                    document.getElementById('voice-status-text').innerText = "Listening...";
+                    document.getElementById('voice-orb-anim').classList.add('voice-active');
+
+                    App.voice.recognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        document.getElementById('voice-status-text').innerText = "Processing...";
+                        document.getElementById('voice-orb-anim').classList.remove('voice-active');
+                        App.chat.send(transcript); // Send text
+                    };
+
+                    App.voice.recognition.onerror = () => {
+                        document.getElementById('voice-status-text').innerText = "Tap to Retry";
+                    };
+
+                    App.voice.recognition.onend = () => {
+                        // If still active but silent, maybe restart? 
+                        // For now we wait for AI response to finish speaking before listening again.
+                    };
+
+                    try { App.voice.recognition.start(); } catch(e){}
+                },
+
+                stopListening: () => {
+                    App.state.voiceActive = false;
+                    document.getElementById('voice-overlay').style.display = 'none';
+                    if (App.voice.recognition) App.voice.recognition.stop();
+                    window.speechSynthesis.cancel();
+                },
+
+                stopSpeaking: () => {
+                    window.speechSynthesis.cancel();
+                },
+
+                speak: (text) => {
+                    if (!window.speechSynthesis) return;
+                    window.speechSynthesis.cancel();
+
+                    // 1. Text Normalization (The "Gemini-like" cleanup)
+                    // Remove code blocks, markdown symbols, and ugly urls
+                    let cleanText = text
+                        .replace(/```[\s\S]*?```/g, "Code block provided.") // Don't read code
+                        .replace(/[*#_`]/g, "") // Remove Markdown formatting
+                        .replace(/https?:\/\/\S+/g, "link") // Replace URLs with "link"
+                        .replace(/\n/g, ". "); // Pauses
+
+                    const utterance = new SpeechSynthesisUtterance(cleanText);
+                    
+                    // 2. Smart Voice Selection
+                    if (App.voice.selectedVoice) {
+                        utterance.voice = App.voice.selectedVoice;
+                    } else {
+                        // Auto-select best quality
+                        const voices = window.speechSynthesis.getVoices();
+                        // Priority: Google US English -> Microsoft -> Default
+                        const best = voices.find(v => v.name.includes("Google US English")) ||
+                                     voices.find(v => v.name.includes("Zira")) || 
+                                     voices.find(v => v.lang === 'en-US');
+                        if(best) utterance.voice = best;
+                    }
+
+                    // 3. Natural Pitch/Rate
+                    utterance.pitch = 1.0; 
+                    utterance.rate = 1.05; // Slightly faster is more natural
+
+                    utterance.onend = () => {
+                        if(App.state.voiceActive) {
+                            setTimeout(() => App.voice.startListening(), 500); // Auto-listen loop
+                        }
+                    };
+
+                    window.speechSynthesis.speak(utterance);
+                }
+            },
+
+            // --- USER & AUTH ---
+            user: {
+                handleAuthChange: (user) => {
+                    const cont = document.getElementById('auth-container');
+                    if (user) {
+                        App.firebase.user = user;
+                        cont.innerHTML = `
+                            <div class="user-info">Logged in: ${user.email}</div>
+                            <button class="auth-btn logout-btn" onclick="firebase.auth().signOut()">Terminate Session</button>
+                        `;
+                        App.user.loadSettingsToUI();
+                    } else {
+                        App.firebase.user = null;
+                        App.user.renderLogin();
+                    }
+                },
+
+                renderLogin: (isSignUp = false) => {
+                    const cont = document.getElementById('auth-container');
+                    cont.innerHTML = `
+                        <div class="auth-form-in-sidebar">
+                            <h4 style="text-align:center; margin-bottom:10px; color:var(--accent);">${isSignUp ? 'Create ID' : 'Identify'}</h4>
+                            <div class="form-group"><input type="email" id="authEmail" placeholder="Email"></div>
+                            <div class="form-group"><input type="password" id="authPass" placeholder="Password"></div>
+                            <button class="auth-btn" onclick="App.user.authAction(${isSignUp})">${isSignUp ? 'REGISTER' : 'LOGIN'}</button>
+                            <div class="auth-toggle" onclick="App.user.renderLogin(${!isSignUp})">${isSignUp ? 'Login instead' : 'New? Create account'}</div>
+                        </div>
+                    `;
+                },
+
+                authAction: (isSignUp) => {
+                    const e = document.getElementById('authEmail').value;
+                    const p = document.getElementById('authPass').value;
+                    if(!e || !p) return alert("Credentials required.");
+                    
+                    const prms = isSignUp ? 
+                        App.firebase.auth.createUserWithEmailAndPassword(e, p) :
+                        App.firebase.auth.signInWithEmailAndPassword(e, p);
+                        
+                    prms.catch(err => alert(err.message));
+                },
+
+                saveSettings: () => {
+                    const s = {
+                        name: document.getElementById('settingName').value,
+                        instructions: document.getElementById('settingPrompt').value
+                    };
+                    localStorage.setItem('bol_user_settings', JSON.stringify(s));
+                    localStorage.setItem('bol_language', document.getElementById('settingLang').value);
+                    App.ui.closeModals();
+                    alert("System Configuration Updated.");
+                },
+
+                loadSettingsToUI: () => {
+                    const s = JSON.parse(localStorage.getItem('bol_user_settings') || '{}');
+                    if(document.getElementById('settingName')) document.getElementById('settingName').value = s.name || '';
+                    if(document.getElementById('settingPrompt')) document.getElementById('settingPrompt').value = s.instructions || '';
+                    if(document.getElementById('settingLang')) document.getElementById('settingLang').value = localStorage.getItem('bol_language') || 'English';
+                }
+            },
+
+            // --- FILES & ADMIN ---
+            files: {
+                handle: (e) => {
+                    const f = e.target.files[0];
+                    if(!f) return;
+                    if(f.size > 1024 * 1024) return alert("File too large (Max 1MB)");
+                    
+                    const r = new FileReader();
+                    r.onload = (evt) => {
+                        const content = evt.target.result;
+                        const box = document.getElementById('userInput');
+                        box.value += `\n\n[FILE: ${f.name}]\n${content}\n[END FILE]\n`;
+                        App.ui.autoResize(box);
+                    };
+                    r.readAsText(f);
+                },
+
+                copyCode: (btn) => {
+                    const code = btn.closest('.code-header-bar').nextElementSibling.innerText;
+                    navigator.clipboard.writeText(code);
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+                    setTimeout(() => btn.innerHTML = original, 2000);
+                }
+            },
+
+            admin: {
+                clicks: 0,
+                secretTrigger: () => {
+                    App.admin.clicks++;
+                    if(App.admin.clicks === 5) {
+                        App.ui.openModal('adminModal');
+                        App.admin.clicks = 0;
+                    }
+                },
+                deploy: () => {
+                    const name = document.getElementById('appName').value;
+                    const code = document.getElementById('appCode').value;
+                    if(name && code) {
+                        App.firebase.db.collection('apps').add({
+                            name, code, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        alert("Logic App Deployed to Cloud.");
+                        App.ui.closeModals();
+                    }
+                }
+            }
+        };
+
+        // --- BOOTSTRAP ---
+        window.onload = () => App.init();
+        
+    </script>
+</body>
+</html>
