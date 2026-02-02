@@ -23,7 +23,7 @@ class handler(BaseHTTPRequestHandler):
             history = post_data.get('history', [])
 
             # 2. # Environment मधून API Keys मिळवा (Get API Keys)
-            all_keys = os.environ.get("MY_API_KEYS", "").split(",")
+            all_keys = os.environ.get("MY_API_KEYS_IM", "").split(",")
             all_keys = [k.strip() for k in all_keys if k.strip()]
             
             if not all_keys:
