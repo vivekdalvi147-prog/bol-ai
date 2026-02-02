@@ -103,7 +103,7 @@ class handler(BaseHTTPRequestHandler):
                     "Content-Type": "application/json"
                 },
                 data=json.dumps({
-                    "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+                    "model": "arcee-ai/trinity-large-preview:free",
                     "messages": messages,
                     "reasoning": {"enabled": True}
                 })
