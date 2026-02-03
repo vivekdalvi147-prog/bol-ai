@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- VIEWPORT OPTIMIZED FOR MOBILE APP FEEL -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>bol-ai | Global Reasoning Engine</title>
+    
+    <!-- 
+        ARCHITECT: VIVEK DALVI
+        SYSTEM: BOL.AI REASONING Engine (User Panel)
+        VERSION: 1.0 (Upgraded & Fixed)
+    -->
+
+    <!-- External Assets -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Rendering Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/tokyo-night-dark.min.css">
+    
+    <!-- MATH RENDERING (KaTeX) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        /* --- CORE DESIGN SYSTEM --- */
+        :root {
+            /* Dark Theme (Default) */
+            --bg: #030508; 
+            --sidebar-bg: #050505; 
+            --accent: #00f2ff; 
+            --secondary: #7000ff;
+            --glass: rgba(255, 255, 255, 0.05); 
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --border: rgba(255, 255, 255, 0.15);
+            --text: #ffffff; 
+            --text-dim: #94a3b8; 
+            --msg-user: #1e293b; 
+            --msg-ai: #0f172a; 
+            --card-glow: rgba(0, 242, 255, 0.1);
+            --error: #ff3333; 
+            --success: #00ff88; 
+            --warning: #ffcc00;
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --shadow-lg: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+
+        [data-theme="light"] {
+            --bg: #f8fafc; 
+            --sidebar-bg: #ffffff; 
+            --accent: #0066ff; 
+            --secondary: #6200ea;
+            --glass: rgba(0, 0, 0, 0.03); 
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --border: rgba(0, 0, 0, 0.1); 
+            --text: #0f172a;
+            --text-dim: #64748b; 
+            --msg-user: #e2e8f0; 
+            --msg-ai: #ffffff; 
+            --card-glow: rgba(0, 102, 255, 0.05);
+            --shadow-lg: 0 10px 30px -10px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="cyber"] {
+            --bg: #050505; 
+            --sidebar-bg: #000000; 
+            --accent: #ff00ff; 
+            --secondary: #00ffff;
+            --glass: rgba(255, 0, 255, 0.05); 
+            --glass-border: rgba(255, 0, 255, 0.2);
+            --border: rgba(255, 0, 255, 0.3); 
+            --text: #00ff00;
+            --text-dim: #00cc00; 
+            --msg-user: #1a001a; 
+            --msg-ai: #001a00;
+            --shadow-lg: 0 0 20px rgba(255,0,255,0.2);
+        }
+
+        /* --- GLOBAL RESET & LAYOUT --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); -webkit-tap-highlight-color: transparent; }
+        
+        html { height: 100%; font-size: 16px; }
+        
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            height: 100dvh; 
+            width: 100%;
+            display: flex; 
+            overflow: hidden; 
+            transition: background 0.4s ease, color 0.4s ease;
+        }
+
+        /* --- SCROLLBAR STYLING --- */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* --- SIDEBAR --- */
+        #sidebar { 
+            width: 280px; 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 13000; 
+            position: relative; 
+            flex-shrink: 0;
+            height: 100%;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform;
+        }
+
+        @media (max-width: 768px) { 
+            #sidebar { 
+                position: fixed; 
+                left: 0; top: 0; bottom: 0;
+                transform: translateX(-100%); 
+                box-shadow: none; 
+                width: 85%;
+                max-width: 320px;
+                background: var(--sidebar-bg);
+            } 
+            #sidebar.open { 
+                transform: translateX(0); 
+                box-shadow: 50px 0 100px rgba(0,0,0,0.8); 
+            } 
+        }
+
+        .sidebar-header { 
+            padding: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            height: 70px;
+        }
+        
+        .logo { 
+            font-size: 1.6rem; 
+            font-weight: 800; 
+            background: linear-gradient(135deg, var(--accent), var(--secondary)); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            letter-spacing: -0.5px; 
+        }
+
+        /* Auth Section */
+        .auth-section { padding: 15px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.1); }
+        .auth-btn { 
+            width: 100%; padding: 12px; border-radius: 8px; 
+            border: 1px solid var(--accent); background: transparent; 
+            color: var(--accent); cursor: pointer; font-weight: 700; 
+            margin-bottom: 10px; transition: 0.2s; font-size: 0.85rem; 
+        }
+        .auth-btn:active { transform: scale(0.98); }
+        .auth-btn:hover { background: var(--accent); color: #000; }
+        .user-info { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-bottom: 10px; word-break: break-all; }
+        .logout-btn { border-color: var(--error); color: var(--error); }
+        .logout-btn:hover { background: var(--error); color: #fff; }
+
+        .auth-form-in-sidebar .form-group { margin-bottom: 10px; }
+        .auth-form-in-sidebar input { 
+            width: 100%; padding: 10px; font-size: 0.9rem; 
+            background: var(--bg); border: 1px solid var(--border); 
+            color: var(--text); border-radius: 6px; outline: none;
+        }
+        .auth-toggle { font-size: 0.75rem; text-align: center; margin-top: 10px; cursor: pointer; text-decoration: underline; color: var(--text-dim); }
+
+        /* New Chat Button */
+        .new-chat-btn { 
+            margin: 15px; padding: 14px; 
+            border: 1px dashed var(--border); border-radius: 12px; 
+            background: var(--glass); color: var(--text); 
+            cursor: pointer; display: flex; align-items: center; 
+            gap: 10px; font-weight: 600; transition: 0.3s; 
+            justify-content: center; font-size: 0.9rem; 
+        }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,0.03); }
+
+        /* History List */
+        #history-list { 
+            flex: 1; overflow-y: auto; 
+            padding: 0 10px;
+        }
+        .history-item { 
+            padding: 12px 15px; font-size: 0.9rem; color: var(--text-dim); 
+            display: flex; align-items: center; justify-content: space-between; 
+            cursor: pointer; transition: 0.2s; border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .history-item:hover, .history-item.active { background: var(--glass); color: var(--text); }
+        .history-item.active { border-left: 3px solid var(--accent); }
+        .history-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+        .delete-btn { color: var(--error); opacity: 0; transition: 0.2s; padding: 5px; }
+        .history-item:hover .delete-btn { opacity: 1; }
+
+        .sidebar-footer { padding: 15px; border-top: 1px solid var(--border); font-size: 0.85rem; }
+        .sidebar-footer .history-item { padding: 10px; }
+
+        /* --- MAIN CONTENT AREA --- */
+        #main-content { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: var(--bg); 
+            position: relative; 
+            width: 100%; 
+            height: 100dvh; 
+            overflow: hidden; 
+        }
+        
+        header { 
+            padding: 0 20px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); 
+            z-index: 100; height: 70px; flex-shrink: 0; 
+            background: rgba(0,0,0,0.2);
+        }
+
+        /* Model Selector */
+        .model-selector-container { position: relative; max-width: 200px; }
+        #modelSelector {
+            background-color: var(--glass); color: var(--text); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 35px 8px 12px; font-size: 0.85rem;
+            font-weight: 600; cursor: pointer; appearance: none; -webkit-appearance: none;
+            width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+            background-image: url("data:image/svg+xml;charset=UTF8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2724%27%20height%3D%2724%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%2394a3b8%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpolyline%20points%3D%276%209%2012%2015%2018%209%27%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 8px center; background-size: 16px;
+        }
+        #modelSelector:focus { border-color: var(--accent); outline: none; }
+
+        /* --- DEFAULT UI CONTAINER --- */
+        #default-ui-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100% - 70px); /* Subtract header */
+            width: 100%;
+        }
+
+        /* --- CUSTOM UI CONTAINER --- */
+        #custom-ui-container {
+            display: none; /* Hidden by default */
+            width: 100%;
+            height: calc(100% - 70px);
+            overflow-y: auto;
+            position: relative;
+            background: var(--bg);
+        }
+
+        /* --- CHAT AREA --- */
+        #chat-container { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 25px; 
+            scroll-behavior: smooth;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .msg-wrapper { width: 100%; display: flex; flex-direction: column; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .message { 
+            padding: 15px 20px; 
+            border-radius: 16px; 
+            line-height: 1.7; 
+            font-size: 0.95rem; 
+            position: relative; 
+            max-width: 92%; 
+            word-wrap: break-word; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .ai-msg { 
+            background: var(--msg-ai); 
+            border: 1px solid var(--border); 
+            border-bottom-left-radius: 4px; 
+            align-self: flex-start;
+            margin-right: auto;
+        }
+        
+        .user-msg { 
+            background: var(--msg-user); 
+            border: 1px solid var(--accent); 
+            align-self: flex-end; 
+            border-bottom-right-radius: 4px; 
+            color: var(--text); 
+            margin-left: auto;
+        }
+        
+        .msg-footer { 
+            display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; 
+            margin-top: 12px; font-size: 0.7rem; color: var(--text-dim); 
+            border-top: 1px solid var(--border); padding-top: 8px; 
+        }
+        .token-count { color: var(--accent); font-weight: 700; }
+
+        /* Code Blocks */
+        pre { 
+            margin: 15px 0; border-radius: 10px; overflow: hidden; 
+            background: #0f0f14 !important; border: 1px solid var(--border); 
+        }
+        .code-header-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: rgba(255,255,255,0.05); padding: 6px 15px; 
+            border-bottom: 1px solid var(--border); 
+        }
+        .code-lang { font-size: 0.7rem; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+        .code-actions { display: flex; gap: 15px; }
+        .code-action-btn { cursor: pointer; color: var(--text-dim); font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
+        .code-action-btn:hover { color: var(--text); }
+        code { font-family: 'Courier New', Courier, monospace; font-size: 0.9em; }
+
+        /* Thinking Indicator */
+        .thinking-box { 
+            display: none; align-items: center; gap: 12px; 
+            padding: 8px 20px; background: var(--sidebar-bg); 
+            border-radius: 30px; margin: 0 auto 10px auto; 
+            border: 1px solid var(--accent); width: fit-content; 
+            font-size: 0.8rem; box-shadow: 0 0 15px var(--card-glow);
+        }
+        .pulsing-dots { display: flex; gap: 5px; }
+        .pulsing-dots span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.4s infinite ease-in-out both; }
+        .pulsing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .pulsing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes pulse { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+
+        /* --- INPUT AREA --- */
+        .input-area { 
+            padding: 15px 20px; 
+            background: var(--bg); 
+            border-top: 1px solid var(--border); 
+            flex-shrink: 0; 
+            width: 100%; 
+            z-index: 1000;
+        }
+        
+        .input-box { 
+            display: flex; 
+            background: var(--sidebar-bg); 
+            border: 1px solid var(--border); 
+            padding: 8px 8px 8px 15px; 
+            border-radius: 24px; 
+            gap: 10px; 
+            align-items: flex-end; 
+            transition: 0.3s; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            box-shadow: var(--shadow-lg);
+        }
+        .input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 20px var(--card-glow); }
+        
+        textarea { 
+            flex: 1; background: transparent; border: none; 
+            color: var(--text); outline: none; resize: none; 
+            min-height: 24px; max-height: 150px; 
+            font-size: 1rem; padding: 10px 0; line-height: 1.5; 
+        }
+        
+        .input-btn { 
+            background: transparent; color: var(--text-dim); border: none; 
+            width: 40px; height: 40px; border-radius: 50%; 
+            cursor: pointer; display: grid; place-items: center; 
+            transition: 0.2s; font-size: 1.1rem; flex-shrink: 0;
+        }
+        .input-btn:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
+        
+        .send-btn { 
+            background: var(--accent); color: #000; 
+            border-radius: 20px; width: 50px; 
+        }
+        .send-btn:hover { transform: scale(1.05); color: #000; box-shadow: 0 0 10px var(--accent); }
+        .send-btn.stopping { background: var(--error); color: #fff; animation: pulseRed 2s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 51, 51, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0); } }
+
+        /* --- VOICE OVERLAY --- */
+        #voice-overlay {
+            display: none; position: fixed; inset: 0; 
+            background: rgba(0,0,0,0.95); z-index: 20000;
+            flex-direction: column; align-items: center; justify-content: center; 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .voice-orb-container { position: relative; width: 220px; height: 220px; display: flex; justify-content: center; align-items: center; margin-bottom: 30px; }
+        
+        .voice-orb {
+            width: 100px; height: 100px; 
+            background: radial-gradient(circle at 30% 30%, var(--accent), var(--secondary));
+            border-radius: 50%; 
+            box-shadow: 0 0 60px var(--accent), inset 0 0 20px rgba(255,255,255,0.5);
+            animation: breathe 3s infinite ease-in-out;
+            position: relative; z-index: 10;
+        }
+
+        .voice-orb::after {
+            content: ''; position: absolute; inset: -15px; border-radius: 50%;
+            background: transparent; border: 2px dashed var(--accent);
+            animation: rotateOrb 10s linear infinite; opacity: 0.3;
+        }
+
+        .voice-wave {
+            position: absolute; border: 2px solid var(--accent); width: 100%; height: 100%;
+            border-radius: 50%; opacity: 0; z-index: 1; pointer-events: none;
+        }
+        .voice-active .voice-wave { animation: ripple 1.5s infinite ease-out; }
+        .voice-active .voice-wave:nth-child(2) { animation-delay: 0.4s; }
+        .voice-active .voice-wave:nth-child(3) { animation-delay: 0.8s; }
+
+        @keyframes breathe { 
+            0% { transform: scale(0.95); box-shadow: 0 0 50px var(--accent); } 
+            50% { transform: scale(1.1); box-shadow: 0 0 100px var(--accent), 0 0 40px var(--secondary); } 
+            100% { transform: scale(0.95); box-shadow: 0 0 50px var(--accent); } 
+        }
+        @keyframes ripple { 0% { transform: scale(0.5); opacity: 0.8; border-width: 4px; } 100% { transform: scale(2.5); opacity: 0; border-width: 0px; } }
+        @keyframes rotateOrb { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .voice-status-text { font-size: 1.8rem; color: var(--text); font-weight: 300; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+        .voice-sub-text { font-size: 1rem; color: var(--text-dim); margin-bottom: 40px; }
+        
+        .voice-controls { display: flex; gap: 15px; flex-direction: column; align-items: center; width: 80%; max-width: 320px; }
+        
+        .voice-persona-select {
+            background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: var(--text);
+            padding: 12px; border-radius: 12px; width: 100%; text-align: center;
+            outline: none; font-weight: 600; cursor: pointer; font-size: 1rem;
+        }
+        .voice-persona-select option { background: #000; color: #fff; }
+
+        .voice-btns-row { display: flex; gap: 20px; width: 100%; justify-content: center; }
+
+        .voice-action-btn {
+            padding: 14px 30px; border: 1px solid var(--border); border-radius: 30px;
+            background: rgba(255,255,255,0.05); color: var(--text); cursor: pointer; transition: 0.3s;
+            font-weight: 600; text-transform: uppercase; font-size: 0.85rem; flex: 1;
+        }
+        .voice-action-btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .voice-action-btn.stop { border-color: var(--error); color: var(--error); }
+        .voice-action-btn.stop:hover { background: var(--error); color: #fff; }
+        .voice-action-btn.close { border-color: var(--accent); color: var(--accent); }
+        .voice-action-btn.close:hover { background: var(--accent); color: #000; }
+
+        /* --- MODALS --- */
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 12500; backdrop-filter: blur(3px); }
+        
+        .modal { 
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 90%; max-width: 550px; background: var(--sidebar-bg); 
+            border: 1px solid var(--border); padding: 30px; border-radius: 20px; 
+            z-index: 13000; box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
+            max-height: 85vh; overflow-y: auto; 
+        }
+        .modal h2 { color: var(--accent); margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .close-modal-btn { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-dim); }
+        .close-modal-btn:hover { color: var(--error); }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; }
+        .form-group input, .form-group textarea, .form-group select { 
+            width: 100%; padding: 12px; background: var(--glass); 
+            border: 1px solid var(--border); color: var(--text); 
+            border-radius: 8px; outline: none; font-size: 0.95rem; 
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+        .form-submit-btn { width: 100%; padding: 14px; background: var(--accent); color: #000; border: none; border-radius: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .form-submit-btn:hover { transform: scale(1.02); box-shadow: 0 0 15px var(--card-glow); }
+
+        /* Custom Popup */
+        .custom-popup-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 14000; backdrop-filter: blur(5px); justify-content: center; align-items: center; }
+        .custom-popup-box { background: var(--sidebar-bg); width: 90%; max-width: 400px; padding: 25px; border-radius: 16px; border: 1px solid var(--accent); box-shadow: 0 10px 40px rgba(0,0,0,0.6); text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .popup-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        .popup-btn { padding: 10px 24px; border-radius: 8px; cursor: pointer; border: none; font-weight: 600; }
+        .popup-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+        .popup-confirm { background: var(--accent); color: #000; }
+
+        /* MANUFACTURING / MAINTENANCE MODE */
+        #maintenance-screen { display: none; position: fixed; inset: 0; background: #000; z-index: 25000; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    
+        .info-modal p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: var(--text-dim);
+        }
+        .info-modal p strong {
+            color: var(--text);
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- VOICE OVERLAY -->
+    <div id="voice-overlay">
+        <div class="voice-orb-container" id="voice-orb-anim">
+            <div class="voice-wave"></div>
+            <div class="voice-wave"></div>
+            <div class="voice-wave"></div>
+            <div class="voice-orb"></div>
+        </div>
+        <div class="voice-status-text" id="voice-main-status">Listening...</div>
+        <div class="voice-sub-text" id="voice-sub-status">Speak naturally</div>
+        
+        <div class="voice-controls">
+            <select id="voicePersonaSelector" class="voice-persona-select" onchange="updateVoicePersona(this.value)">
+                <option value="Nova">Nova (Female - Energetic)</option>
+                <option value="Ursa">Ursa (Male - Calm)</option>
+                <option value="Vega">Vega (Female - Professional)</option>
+                <option value="Pegasus">Pegasus (Male - Deep)</option>
+                <option value="Lyra">Lyra (Female - Soft)</option>
+                <option value="Orion">Orion (Male - Assertive)</option>
+            </select>
+            
+            <div class="voice-btns-row">
+                <button class="voice-action-btn stop" onclick="stopSpeaking()">Stop Audio</button>
+                <button class="voice-action-btn close" onclick="stopVoiceMode()">Exit Mode</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP COMPONENTS -->
+    <div id="customPopup" class="custom-popup-overlay">
+        <div class="custom-popup-box">
+            <div id="popupTitle" class="custom-popup-title" style="font-size:1.2rem; font-weight:700; color:var(--accent); margin-bottom:10px;">Notification</div>
+            <div id="popupMsg" class="custom-popup-msg" style="color:var(--text); margin-bottom:15px;">Message goes here</div>
+            <input type="text" id="popupInput" class="form-group" style="display:none; width:100%; margin-bottom:15px;" placeholder="Type here...">
+            <div class="popup-btns">
+                <button class="popup-btn popup-cancel" onclick="closeCustomPopup()">Cancel</button>
+                <button class="popup-btn popup-confirm" id="popupActionBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUFACTURING / MAINTENANCE SCREEN (Controlled by Admin) -->
+    <div id="maintenance-screen">
+        <i class="fas fa-microchip" style="font-size: 5rem; color: var(--accent); animation: pulse 2s infinite;"></i>
+        <h1 style="font-size: 2.5rem; color: var(--accent); margin-top: 20px;">MANUFACTURING MODE</h1>
+        <p style="font-size: 1.1rem; color: var(--text-dim); max-width: 600px; margin: 10px auto;">
+            The Bol-AI Logic Engine is currently undergoing critical upgrades by the architecture team.
+            <br>Please wait while we deploy new intelligence modules.
+        </p>
+    </div>
+
+    <div id="overlay" onclick="closeModals()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <span class="logo">bol-ai 1.0</span>
+            <i class="fas fa-times" style="cursor:pointer; font-size: 1.4rem; color:var(--text-dim);" onclick="toggleSidebar()"></i>
+        </div>
+
+        <div class="auth-section" id="authSection">
+            <!-- Rendered via JS -->
+        </div>
+
+        <button class="new-chat-btn" onclick="startNewChat(false)">
+            <i class="fas fa-plus-circle"></i> <span>Initialize Logic Session</span>
+        </button>
+        
+        <div id="history-list">
+            <!-- History Items Rendered Here -->
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="history-item" onclick="openModal('aboutModal')"><span><i class="fas fa-info-circle"></i> About bol-ai</span></div>
+            <div class="history-item" onclick="openModal('privacyModal')"><span><i class="fas fa-user-secret"></i> Logic Privacy</span></div>
+            <div class="history-item" onclick="openModal('contactModal')"><span><i class="fas fa-headset"></i> System Support</span></div>
+        </div>
+    </aside>
+
+    <!-- MAIN INTERFACE -->
+    <main id="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px">
+                <i class="fas fa-bars" style="font-size: 1.4rem; cursor: pointer; color:var(--text);" onclick="toggleSidebar()"></i>
+            </div>
+
+            <div class="model-selector-container">
+                <select id="modelSelector" onchange="handleModelChange(this.value)"></select>
+            </div>
+
+            <div style="display:flex; gap:20px; align-items:center">
+                <i class="fas fa-floppy-disk" style="cursor:pointer; color:var(--accent); font-size:1.3rem" onclick="openManualSave()" title="Snapshot Logic (Local)"></i>
+                <i class="fas fa-cog" style="cursor:pointer; color:var(--accent); font-size:1.3rem" onclick="openModal('settingsModal')" title="Settings"></i>
+            </div>
+        </header>
+
+        <!-- DEFAULT CHAT INTERFACE -->
+        <div id="default-ui-container">
+            <div id="chat-container">
+                <!-- Default Welcome Message -->
+                <div class="msg-wrapper default-view">
+                    <div class="message ai-msg">
+                        <h3 style="color:var(--accent); margin-bottom:5px;">bol-ai 1.0 </h3>
+                        <p>Engine Upgrade Complete by <b>Vivek Dalvi</b>. Ask anything...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area" id="default-input-area">
+                <div class="thinking-box" id="thinking-box">
+                     <div class="pulsing-dots"><span></span><span></span><span></span></div>
+                    <span style="color:var(--accent); font-weight:700">VIVEK'S CORE REASONING...</span>
+                </div>
+                
+                <div class="input-box">
+                    <input type="file" id="fileInput" style="display: none;" accept=".c,.cpp,.txt,.html,.css,.js,.py,.java,.kts,.kt,.xml,.json,.md,.sql" onchange="handleFileUpload(event)">
+                    <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Upload Code/Text File"><i class="fas fa-paperclip"></i></button>
+                    
+                    <textarea id="userInput" placeholder="Ask anything..." rows="1" oninput="autoExpand(this)" onkeydown="checkEnter(event)"></textarea>
+                    
+                    <!-- VOICE BUTTON -->
+                    <button class="input-btn" id="voice-mode-btn" onclick="activateVoiceMode()" title="Voice Mode" style="color:var(--accent);"><i class="fas fa-microphone"></i></button>
+                    
+                    <button class="input-btn send-btn" id="sendActionBtn" onclick="handleSendClick()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); opacity:0.6;">Created by Vivek Dalvi | © 2026 bol-ai | All Rights Reserved</div>
+            </div>
+        </div>
+
+        <!-- CUSTOM MODEL INTERFACE (Injected by Admin) -->
+        <div id="custom-ui-container">
+            <!-- Custom HTML will be injected here -->
+        </div>
+
+    </main>
+    
+    <!-- SETTINGS MODAL -->
+    <div class="modal" id="settingsModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Settings</h2>
+        <div class="form-group">
+            <label for="userName">Your Name</label>
+            <input type="text" id="userName" placeholder="Enter your name...">
+        </div>
+        <div class="form-group">
+            <label for="systemInstructions">Custom System Instructions</label>
+            <textarea id="systemInstructions" placeholder="e.g., Always reply in a professional tone."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Language</label>
+             <select id="langSelect" class="form-group" style="width:100%; padding: 12px; appearance: none; background: var(--glass); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; transition: 0.3s; font-size: 0.9rem;">
+                <option value="English">English</option>
+                <optgroup label="Indian Languages"><option value="Marathi">Marathi (मराठी)</option><option value="Hindi">Hindi (हिंदी)</option><option value="Gujarati">Gujarati (ગુજરાતી)</option><option value="Tamil">Tamil (தமிழ்)</option><option value="Telugu">Telugu (తెలుగు)</option><option value="Kannada">Kannada (ಕನ್ನಡ)</option><option value="Malayalam">Malayalam (മലയാളം)</option><option value="Bengali">Bengali (বাংলা)</option></optgroup>
+                <optgroup label="Global"><option value="Spanish">Spanish</option><option value="French">French</option><option value="German">German</option><option value="Japanese">Japanese</option></optgroup>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Interface Theme</label>
+            <select id="themeSelector" onchange="changeTheme(this.value)">
+                <option value="dark">Dark Theme</option>
+                <option value="light">Light Theme</option>
+                <option value="cyber">Cyber Mode</option>
+            </select>
+        </div>
+        <button class="form-submit-btn" onclick="saveSettings()">Save Settings</button>
+    </div>
+
+    <!-- INFO MODALS -->
+    <div class="modal info-modal" id="aboutModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>About bol-ai</h2>
+        <p><strong>bol-ai</strong> is a high-performance reasoning engine architected by <strong>Vivek Dalvi</strong>. It is designed to be a versatile and intelligent platform capable of handling complex queries and providing insightful responses.</p>
+        <p>Version 1.0 brings strict mobile compatibility, enhanced voice synthesis, robust state management, and seamless integration with a dynamic, admin-controlled knowledge base.</p>
+    </div>
+    
+    <div class="modal info-modal" id="privacyModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>Logic Privacy Protocol</h2>
+        <p>Your privacy is a fundamental component of the bol-ai architecture. We are committed to protecting your data and ensuring transparency in our operations.</p>
+        <p><strong>1. Local Storage:</strong> All your chat history and sessions are stored exclusively on your device's local storage.</p>
+        <p><strong>2. Secure Authentication:</strong> User authentication is handled through Firebase Authentication.</p>
+    </div>
+    
+    <div class="modal info-modal" id="contactModal">
+        <span class="close-modal-btn" onclick="closeModals()">&times;</span>
+        <h2>System Support</h2>
+        <p>For technical inquiries, bug reports, or feedback regarding the bol-ai engine, please do not hesitate to reach out to the core architect.</p>
+        <div style="margin: 20px 0; padding: 15px; border: 1px dashed var(--accent); border-radius: 10px; text-align: center;">
+            <i class="fas fa-envelope" style="font-size: 1.5rem; color: var(--accent); margin-bottom: 10px; display: block;"></i>
+            <span style="font-size: 1.2rem; font-weight: 700;">vcoder7311@gmail.com</span>
+        </div>
+    </div>
+
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDa1ICSJw1iYY8TRUDXuAs0dsZp64FzQgE",
+            authDomain: "bol-ai-70651.firebaseapp.com",
+            projectId: "bol-ai-70651",
+            storageBucket: "bol-ai-70651.firebasestorage.app",
+            messagingSenderId: "600504686740",
+            appId: "1:600504686740:web:8e08482248bc52728f3c81"
+        };
+        
+        // --- INITIALIZATION ---
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore(); 
+
+        // --- STATE MANAGEMENT ---
+        const State = {
+            currentUser: null,
+            isLoginMode: true,
+            chatContext: [],
+            currentSessionId: Date.now(),
+            isGenerating: false,
+            stopStreaming: false,
+            abortController: null,
+            availableModels: [],
+            globalKnowledge: "", 
+            adminSystemInstructions: "", // Added for Admin System Instructions
+            installedApps: [], 
+            currentModel: { id: 'default', name: 'Bol-AI 1.0 (Information)', apiUrl: '/api/chat' },
+            userSettings: { name: "User", instructions: "" },
+            voice: {
+                active: false,
+                recognition: null,
+                persona: 'Nova',
+                synth: window.speechSynthesis
+            }
+        };
+
+        // --- AUDIO CONTEXT (For Beep Sounds) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'start') {
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            } else {
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+            }
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // --- AUTHENTICATION LOGIC ---
+        auth.onAuthStateChanged(async user => {
+            State.currentUser = user;
+            updateAuthUI();
+            if (user) {
+                // Load settings from cloud immediately on login
+                await loadSettings();
+            }
+        });
+
+        function updateAuthUI() {
+            const container = document.getElementById('authSection');
+            if (State.currentUser) {
+                container.innerHTML = `<div class="user-info">${State.currentUser.email}</div><button class="auth-btn logout-btn" onclick="handleLogout()">Logout</button>`;
+            } else {
+                renderAuthForm();
+            }
+        }
+
+        function toggleAuthMode() { State.isLoginMode = !State.isLoginMode; renderAuthForm(); }
+        
+        function renderAuthForm() {
+            const container = document.getElementById('authSection');
+            container.innerHTML = `
+                <div class="auth-form-in-sidebar">
+                    <h4 style="text-align:center; margin-bottom:10px; color: var(--accent);">${State.isLoginMode ? "Login" : "Sign Up"}</h4>
+                    <div class="form-group"><input type="email" id="authEmailSidebar" placeholder="Email Address"></div>
+                    <div class="form-group"><input type="password" id="authPassSidebar" placeholder="Password"></div>
+                    <button class="auth-btn" onclick="handleAuth()">${State.isLoginMode ? "LOGIN" : "CREATE ACCOUNT"}</button>
+                    <div class="auth-toggle" onclick="toggleAuthMode()">${State.isLoginMode ? "New user? Create account" : "Already have an account? Login"}</div>
+                </div>
+            `;
+        }
+
+        function handleAuth() {
+            const email = document.getElementById('authEmailSidebar').value;
+            const pass = document.getElementById('authPassSidebar').value;
+            if(!email || !pass) return customAlert("Please fill all fields");
+
+            const action = State.isLoginMode ? auth.signInWithEmailAndPassword(email, pass) : auth.createUserWithEmailAndPassword(email, pass);
+            action.then(userCredential => {
+                customAlert(State.isLoginMode ? "Login successful!" : "Account created successfully!");
+            }).catch(e => customAlert(e.message));
+        }
+        function handleLogout() { auth.signOut().then(() => window.location.reload()); }
+
+        // --- SETTINGS & THEMES ---
+        function loadPreferences() {
+            const savedTheme = localStorage.getItem('bol_theme') || 'dark';
+            const savedLang = localStorage.getItem('bol_language') || 'English';
+            document.body.setAttribute('data-theme', savedTheme);
+            document.getElementById('themeSelector').value = savedTheme;
+            document.getElementById('langSelect').value = savedLang;
+        }
+
+        function changeTheme(val) { 
+            document.body.setAttribute('data-theme', val); 
+            localStorage.setItem('bol_theme', val);
+        }
+
+        async function loadSettings() {
+            if (State.currentUser) {
+                try {
+                    const userDoc = await db.collection('users').doc(State.currentUser.uid).get();
+                    if (userDoc.exists) {
+                        const data = userDoc.data();
+                        State.userSettings.name = data.name || "User";
+                        State.userSettings.instructions = data.systemInstructions || "";
+                    } else {
+                        // If no cloud data, try local, then save to cloud
+                        const savedSettings = localStorage.getItem('bol_user_settings');
+                        if (savedSettings) {
+                            State.userSettings = JSON.parse(savedSettings);
+                            // Sync local to cloud
+                            db.collection('users').doc(State.currentUser.uid).set({
+                                name: State.userSettings.name,
+                                systemInstructions: State.userSettings.instructions
+                            }, { merge: true });
+                        }
+                    }
+                } catch(e) { console.error("Error loading user settings from Firestore", e); }
+            } else {
+                 const savedSettings = localStorage.getItem('bol_user_settings');
+                 if (savedSettings) State.userSettings = JSON.parse(savedSettings);
+            }
+            document.getElementById('userName').value = State.userSettings.name || "";
+            document.getElementById('systemInstructions').value = State.userSettings.instructions || "";
+        }
+
+        function saveSettings() {
+            const name = document.getElementById('userName').value.trim();
+            const instructions = document.getElementById('systemInstructions').value.trim();
+            
+            State.userSettings.name = name;
+            State.userSettings.instructions = instructions;
+            
+            localStorage.setItem('bol_user_settings', JSON.stringify(State.userSettings));
+
+            if (State.currentUser) {
+                db.collection('users').doc(State.currentUser.uid).set({ 
+                    name: name,
+                    systemInstructions: instructions
+                }, { merge: true }).then(() => {
+                    customAlert("Settings Saved to Cloud!");
+                }).catch(e => {
+                    customAlert("Saved locally. Cloud sync failed: " + e.message);
+                });
+            } else {
+                customAlert("Settings Saved Locally (Login to sync)");
+            }
+            closeModals();
+        }
+
+        // --- SYSTEM DATA, APPS & MODELS ---
+        function loadSystemData() {
+            // 1. Load Custom Models with Live Update Fix
+            db.collection('models').where('isVisible', '==', true).onSnapshot((snapshot) => {
+                State.availableModels = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                populateModelSelector();
+                
+                // FIX: Update current model reference if it changes in DB while active
+                if (State.currentModel.id !== 'default') {
+                     const updatedModel = State.availableModels.find(m => m.id === State.currentModel.id);
+                     if (updatedModel) {
+                         State.currentModel = updatedModel;
+                     }
+                }
+            });
+
+            // 2. Load Global Knowledge (Admin)
+            db.collection('knowledge').onSnapshot((snapshot) => {
+                let knowledgeFacts = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    knowledgeFacts.push(`${data.title.toUpperCase()}: ${data.content}`);
+                });
+                State.globalKnowledge = knowledgeFacts.join('\n\n');
+            });
+
+            // 3. Load Apps (Admin) - SMART INTEGRATION
+            db.collection('apps').onSnapshot((snapshot) => {
+                State.installedApps = snapshot.docs.map(doc => doc.data());
+            });
+
+            // 4. Manufacturing/Maintenance Mode & System Instructions
+            db.collection('settings').doc('system').onSnapshot(doc => {
+                const data = doc.data();
+                if (data) {
+                    // Maintenance Logic
+                    const isMaintenance = data.maintenance_mode || false;
+                    const screen = document.getElementById('maintenance-screen');
+                    if(isMaintenance) {
+                        screen.style.display = 'flex';
+                        closeModals();
+                        if(State.voice.active) stopVoiceMode();
+                    } else {
+                        screen.style.display = 'none';
+                    }
+                    
+                    // System Instructions Logic (Fix for Admin Instructions)
+                    // We check for 'system_instructions' (manual) or 'custom_description' (auto-generated by Admin)
+                    State.adminSystemInstructions = data.system_instructions || "";
+                }
+            });
+        }
+
+        function populateModelSelector() {
+            const selector = document.getElementById('modelSelector');
+            const currentValue = selector.value;
+            selector.innerHTML = ''; 
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'default';
+            defaultOption.textContent = 'Bol-AI 1.0 (Information)';
+            selector.appendChild(defaultOption);
+
+            State.availableModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                selector.appendChild(option);
+            });
+            
+            // Restore selection if it still exists
+            if (currentValue && (currentValue === 'default' || State.availableModels.find(m => m.id === currentValue))) {
+                selector.value = currentValue;
+            } else {
+                selector.value = 'default';
+                handleModelChange('default');
+            }
+        }
+
+        // --- MODEL SWITCHING & CUSTOM UI ENGINE ---
+        function handleModelChange(modelId) {
+            // 1. Cleanup previous custom CSS
+            const oldStyle = document.getElementById('custom-model-style');
+            if(oldStyle) oldStyle.remove();
+
+            // 2. Find Model Data
+            if (modelId === 'default') {
+                State.currentModel = { id: 'default', name: 'Bol-AI 1.0 (Information)', apiUrl: '/api/chat' };
+                toggleCustomUI(false);
+            } else {
+                const model = State.availableModels.find(m => m.id === modelId);
+                State.currentModel = model;
+
+                // 3. Check for Custom UI Code
+                if (model && (model.htmlCode || model.jsCode)) {
+                    renderCustomUI(model);
+                } else {
+                    toggleCustomUI(false);
+                }
+            }
+            
+            if(State.chatContext.length > 0 && modelId === 'default') startNewChat(true); 
+        }
+
+        function toggleCustomUI(showCustom) {
+            const defaultUI = document.getElementById('default-ui-container');
+            const customUI = document.getElementById('custom-ui-container');
+            
+            if (showCustom) {
+                defaultUI.style.display = 'none';
+                customUI.style.display = 'block';
+            } else {
+                defaultUI.style.display = 'flex';
+                customUI.style.display = 'none';
+                customUI.innerHTML = ''; // Clear custom HTML
+            }
+        }
+
+        function renderCustomUI(model) {
+            toggleCustomUI(true);
+            const container = document.getElementById('custom-ui-container');
+            
+            // Inject HTML
+            if (model.htmlCode) {
+                container.innerHTML = model.htmlCode;
+            }
+
+            // Inject CSS
+            if (model.cssCode) {
+                const style = document.createElement('style');
+                style.id = 'custom-model-style';
+                style.innerHTML = model.cssCode;
+                document.head.appendChild(style);
+            }
+
+            // Inject/Execute JS
+            if (model.jsCode) {
+                try {
+                    // Provide a safe interface for the custom script to call the AI
+                    window.BolAI = {
+                        user: State.currentUser,
+                        askAI: async (prompt, systemOverride) => {
+                            // Helper for custom UI to get AI response
+                            return await fetchAIResponse(prompt, systemOverride || model.knowledge);
+                        },
+                        showAlert: customAlert
+                    };
+
+                    // Execute the custom JS
+                    // Using new Function to run it within the current scope but slightly isolated
+                    const runScript = new Function(model.jsCode);
+                    runScript();
+                } catch (e) {
+                    console.error("Custom Model JS Error:", e);
+                    container.innerHTML += `<div style="color:red; padding:20px;">Error loading Custom Logic: ${e.message}</div>`;
+                }
+            }
+        }
+
+        // --- CHAT LOGIC ---
+        function checkEnter(e) { 
+            if (e.key === "Enter" && !e.shiftKey) { 
+                e.preventDefault(); 
+                handleSendClick();
+            } 
+        }
+        
+        function handleSendClick() { if (State.isGenerating) { stopGeneration(); } else { sendMessage(); } }
+        
+        // Separated API logic for reusability by Custom UI
+        async function fetchAIResponse(text, systemContext) {
+            const selectedLang = document.getElementById('langSelect').value;
+            
+            // Combine Global Knowledge (from 'knowledge' collection) and Admin Instructions (from 'settings/system')
+            const adminKnowledge = (State.globalKnowledge + "\n" + (State.adminSystemInstructions || "")).trim();
+            const userInstructions = State.userSettings.instructions;
+
+            // Build System Prompt
+            let systemPrompt = "";
+            
+            if (State.currentModel.id === 'default') {
+                 // Check installed apps for data injection
+                 let appResults = "";
+                 State.installedApps.forEach(app => {
+                    const triggers = app.keywords || [];
+                    if (triggers.some(kw => text.toLowerCase().includes(kw.toLowerCase()))) {
+                        try {
+                            const appFunction = new Function(app.code);
+                            appResults += `\n[SYSTEM DATA from App '${app.name}']: ${appFunction()}`;
+                        } catch (err) { console.error(err); }
+                    }
+                });
+
+                systemPrompt = `${adminKnowledge ? 'GLOBAL KNOWLEDGE & INSTRUCTIONS:\n' + adminKnowledge + '\n\n' : ''}
+                ${appResults ? 'REAL-TIME SYSTEM DATA:' + appResults + '\n\n' : ''}
+                ${userInstructions ? 'USER INSTRUCTIONS: ' + userInstructions + '\n\n' : ''}
+                You are bol-ai 1.0. USER INFO: Name: ${State.userSettings.name}.
+                LANGUAGE: Reply in ${selectedLang}.
+                FORMAT: Use Markdown. Use LaTeX for math.`;
+            } else {
+                // Custom Model Context
+                // Ensure Admin Knowledge is included even for custom models unless explicitly overridden
+                systemPrompt = `${adminKnowledge ? 'GLOBAL KNOWLEDGE:\n' + adminKnowledge + '\n\n' : ''}
+                ${userInstructions ? 'USER INSTRUCTIONS: ' + userInstructions + '\n\n' : ''}
+                ${systemContext || State.currentModel.knowledge || `You are ${State.currentModel.name}.`}
+                \nUSER INFO: ${State.userSettings.name}. Reply in ${selectedLang}.`;
+            }
+
+            const apiUrl = State.currentModel.apiUrl || '/api/chat';
+            
+            const res = await fetch(apiUrl, {
+                method: "POST", 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, system: systemPrompt.trim(), history: State.chatContext.slice(-10) })
+            });
+            
+            if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+            const data = await res.json();
+            return data.choices ? data.choices[0].message.content : (data.message || "Error processing response.");
+        }
+
+        async function sendMessage(isVoiceInput = false) {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            if (State.currentUser) {
+                db.collection('users').doc(State.currentUser.uid).set({ requestCount: firebase.firestore.FieldValue.increment(1) }, { merge: true });
+            }
+            
+            const sanitizedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            appendMsg('user', sanitizedText);
+            State.chatContext.push({role:'user', content: sanitizedText});
+            autoSaveSession(); 
+            
+            input.value = ''; 
+            input.style.height = 'auto'; 
+            
+            document.getElementById('thinking-box').style.display = 'flex';
+            toggleSendButtonState(true);
+            
+            State.stopStreaming = false;
+            State.isGenerating = true;
+            State.abortController = new AbortController();
+
+            try {
+                const aiMsg = await fetchAIResponse(text);
+                const tokens = Math.ceil(aiMsg.length / 4);
+                
+                if (isVoiceInput) {
+                    document.getElementById('voice-main-status').innerText = "Speaking...";
+                    document.getElementById('voice-sub-status').innerText = "AI is answering";
+                    speakText(aiMsg);
+                    appendMsg('ai', aiMsg); 
+                    State.chatContext.push({role:'assistant', content:aiMsg});
+                    autoSaveSession();
+                } else {
+                    await typeEffect(aiMsg, State.currentModel.name, tokens);
+                    if (!State.stopStreaming) {
+                        State.chatContext.push({role:'assistant', content:aiMsg});
+                        autoSaveSession();
+                    }
+                }
+            } catch(e) { 
+                showError("Connection Failed. Please try again."); 
+            } finally {
+                if (!isVoiceInput) resetUI(); 
+            }
+        }
+
+        function stopGeneration() {
+            State.stopStreaming = true;
+            if (State.abortController) {
+                State.abortController.abort();
+                State.abortController = null;
+            }
+            State.voice.synth.cancel(); 
+            resetUI();
+            if(State.voice.active) stopVoiceMode();
+            appendMsg('ai', `<span style="color:var(--warning); font-style:italic;">[Generation Stopped by User]</span>`);
+        }
+
+        function resetUI() {
+            document.getElementById('thinking-box').style.display = 'none';
+            toggleSendButtonState(false);
+            State.isGenerating = false;
+        }
+
+        function toggleSendButtonState(generating) {
+            const btn = document.getElementById('sendActionBtn');
+            if (generating) {
+                btn.innerHTML = '<i class="fas fa-stop"></i>';
+                btn.classList.add('stopping');
+                btn.title = "Stop Generating";
+            } else {
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                btn.classList.remove('stopping');
+                btn.title = "Send Message";
+            }
+        }
+
+        // --- RENDERING & TYPING ---
+        async function typeEffect(text, apiIdx, tokens) {
+            const container = document.getElementById('chat-container');
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper default-view';
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message ai-msg';
+            wrap.appendChild(msgDiv); container.appendChild(wrap);
+            container.scrollTop = container.scrollHeight;
+
+            let currentText = '';
+            const words = text.split(' ');
+
+            for (const word of words) {
+                if (State.stopStreaming) break;
+                currentText += word + ' ';
+                msgDiv.innerHTML = marked.parse(currentText);
+                container.scrollTop = container.scrollHeight;
+                await new Promise(resolve => setTimeout(resolve, 20)); 
+            }
+
+            if (!State.stopStreaming) {
+                msgDiv.innerHTML = marked.parse(text);
+                formatCodeBlocks(msgDiv);
+                const footer = document.createElement('div'); footer.className = 'msg-footer';
+                footer.innerHTML = `<span>Model: ${apiIdx} | <span class="token-count">Tokens: ${tokens}</span></span>`;
+                msgDiv.appendChild(footer);
+            } else {
+                 msgDiv.innerHTML += ` <br><br><i>(Interrupted)</i>`;
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatCodeBlocks(element) {
+            element.querySelectorAll('pre').forEach(pre => {
+                const codeBlock = pre.querySelector('code');
+                if (codeBlock && !pre.querySelector('.code-header-bar')) {
+                    const header = document.createElement('div');
+                    header.className = 'code-header-bar';
+                    header.innerHTML = `<span class="code-lang">${(codeBlock.className.replace('language-','').toUpperCase() || 'CODE')}</span><div class="code-actions"><div class="code-action-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</div></div>`;
+                    pre.insertBefore(header, codeBlock);
+                }
+            });
+            element.querySelectorAll('pre code').forEach(hljs.highlightElement);
+            renderMathInElement(element, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});
+        }
+
+        function appendMsg(role, text) {
+            const container = document.getElementById('chat-container');
+            const welcome = container.querySelector('.default-view');
+            if(welcome && State.chatContext.length === 0) welcome.remove();
+
+            const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role === 'user' ? 'user-msg' : 'ai-msg'}`;
+            msgDiv.innerHTML = marked.parse(text);
+            if(role === 'ai') formatCodeBlocks(msgDiv);
+            wrap.appendChild(msgDiv);
+            container.appendChild(wrap); 
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showError(msg) {
+            document.getElementById('thinking-box').style.display = 'none';
+            appendMsg('ai', `<span style="color:var(--error); font-weight:bold;">Error: ${msg}</span>`);
+        }
+
+        // --- SESSION MANAGEMENT ---
+        function autoSaveSession() {
+            if(State.chatContext.length === 0) return;
+            try {
+                let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                const idx = history.findIndex(item => item.id === State.currentSessionId);
+                const title = State.chatContext.find(m => m.role === 'user')?.content.substring(0, 30) + "..." || "New Chat";
+                const data = { id: State.currentSessionId, title: title, messages: State.chatContext, timestamp: Date.now() };
+                
+                if (idx > -1) history[idx] = data; else history.unshift(data);
+                
+                if(history.length > 50) history.pop();
+                
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                loadHistory();
+            } catch(e) { console.error("Storage Error", e); }
+        }
+
+        function openManualSave() {
+            if(State.chatContext.length === 0) return customAlert("Chat is empty!");
+            showCustomPopup("Save Session", "Enter a name for this chat:", true, (title) => {
+                let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                const newSession = { id: Date.now(), title, messages: State.chatContext, timestamp: Date.now() };
+                history.unshift(newSession);
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                State.currentSessionId = newSession.id;
+                loadHistory();
+                customAlert("Saved successfully!");
+            });
+        }
+
+        function deleteSession(id, e) {
+            e.stopPropagation();
+            showCustomPopup("Delete Chat", "Are you sure you want to wipe this session?", false, () => {
+                let history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+                history = history.filter(item => item.id !== id);
+                localStorage.setItem('bol_history', JSON.stringify(history));
+                if(id === State.currentSessionId) startNewChat();
+                loadHistory();
+            });
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('bol_history') || '[]');
+            list.innerHTML = "";
+            
+            history.sort((a, b) => b.timestamp - a.timestamp).forEach((item) => {
+                const div = document.createElement('div'); 
+                div.className = `history-item ${item.id === State.currentSessionId ? 'active' : ''}`;
+                div.innerHTML = `<span><i class="fas fa-message"></i> ${item.title}</span><i class="fas fa-trash delete-btn" onclick="deleteSession(${item.id}, event)"></i>`;
+                
+                div.onclick = () => loadSession(item);
+                list.appendChild(div);
+            });
+        }
+
+        function loadSession(item) {
+            // Force switch to default UI when loading history to avoid conflicts
+            handleModelChange('default');
+            document.getElementById('modelSelector').value = 'default';
+
+            State.chatContext = item.messages || []; 
+            State.currentSessionId = item.id;
+            State.stopStreaming = false;
+            
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.innerHTML = ""; 
+            
+            State.chatContext.forEach(m => {
+                const wrap = document.createElement('div'); wrap.className = 'msg-wrapper';
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${m.role === 'user' ? 'user-msg' : 'ai-msg'}`;
+                msgDiv.innerHTML = marked.parse(m.content);
+                if(m.role === 'assistant') formatCodeBlocks(msgDiv);
+                wrap.appendChild(msgDiv);
+                chatContainer.appendChild(wrap);
+            });
+            
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            loadHistory(); 
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        function startNewChat(keepModel = false) { 
+            State.chatContext = []; 
+            State.currentSessionId = Date.now(); 
+            document.getElementById('chat-container').innerHTML = '<div class="msg-wrapper default-view"><div class="message ai-msg"><h3>bol-ai 1.0</h3><p>New session initialized.</p></div></div>';
+            State.stopStreaming = false;
+            
+            if (!keepModel) {
+                document.getElementById('modelSelector').value = 'default';
+                handleModelChange('default');
+            }
+            
+            loadHistory(); 
+            if(window.innerWidth <= 768) toggleSidebar(); 
+        }
+
+        // --- VOICE ENGINE (STRICT MALE/FEMALE) ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            State.voice.recognition = new SpeechRecognition();
+            State.voice.recognition.continuous = false;
+            State.voice.recognition.interimResults = false;
+            State.voice.recognition.maxAlternatives = 1;
+            
+            State.voice.recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('userInput').value = transcript;
+                document.getElementById('voice-main-status').innerText = "Processing...";
+                document.getElementById('voice-sub-status').innerText = "Thinking...";
+                document.getElementById('voice-orb-anim').classList.remove('voice-active');
+                playBeep('stop');
+                sendMessage(true);
+            };
+
+            State.voice.recognition.onerror = function(event) {
+                if(event.error === 'no-speech') {
+                    if(State.voice.active) try { State.voice.recognition.start(); } catch(e){}
+                } else {
+                    document.getElementById('voice-main-status').innerText = "Error";
+                    playBeep('stop');
+                }
+            };
+        }
+
+        function activateVoiceMode() {
+            if (!SpeechRecognition) return customAlert("Browser does not support Voice Recognition.");
+            State.voice.active = true;
+            document.getElementById('voice-overlay').style.display = 'flex';
+            startListening();
+        }
+
+        function stopVoiceMode() {
+            State.voice.active = false;
+            document.getElementById('voice-overlay').style.display = 'none';
+            if(State.voice.recognition) State.voice.recognition.stop();
+            State.voice.synth.cancel();
+            resetUI();
+        }
+
+        function stopSpeaking() {
+             State.voice.synth.cancel();
+             document.getElementById('voice-main-status').innerText = "Stopped";
+             document.getElementById('voice-sub-status').innerText = "Tap to speak again";
+        }
+
+        function updateVoicePersona(val) {
+            State.voice.persona = val;
+            customAlert("Voice Persona switched to " + val);
+        }
+
+        function startListening() {
+            if(!State.voice.active) return;
+            
+            const langMap = {
+                'English': 'en-US', 'Marathi': 'mr-IN', 'Hindi': 'hi-IN', 'Bengali': 'bn-IN',
+                'Spanish': 'es-ES', 'French': 'fr-FR', 'German': 'de-DE', 'Japanese': 'ja-JP'
+            };
+            const selectedLang = document.getElementById('langSelect').value;
+            State.voice.recognition.lang = langMap[selectedLang] || 'en-US';
+
+            document.getElementById('voice-main-status').innerText = "Listening...";
+            document.getElementById('voice-sub-status').innerText = "Speak now";
+            document.getElementById('voice-orb-anim').classList.add('voice-active');
+            
+            playBeep('start');
+            try { State.voice.recognition.start(); } catch(e) { console.log("Mic busy"); }
+        }
+        
+        function speakText(text) {
+            if (!State.voice.synth) return;
+            State.voice.synth.cancel();
+
+            let cleanText = text
+                .replace(/```[\s\S]*?```/g, " Code block omitted. ")
+                .replace(/[*#`_~]/g, '')
+                .replace(/\[.*?\]\(.*?\)/g, '')
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            const voices = State.voice.synth.getVoices();
+            
+            // STRICT VOICE SELECTION LOGIC
+            const persona = State.voice.persona;
+            const isMale = ['Ursa', 'Pegasus', 'Orion'].includes(persona);
+            
+            // Try to find a voice that matches gender and language
+            let selectedVoice = voices.find(v => {
+                const name = v.name.toLowerCase();
+                const lang = v.lang.toLowerCase();
+                const targetLang = State.voice.recognition.lang.toLowerCase().split('-')[0];
+                
+                // Check Language
+                if (!lang.includes(targetLang)) return false;
+
+                // Check Gender (Heuristic based on name)
+                if (isMale) {
+                    return name.includes('male') || name.includes('david') || name.includes('guy') || name.includes('daniel');
+                } else {
+                    return name.includes('female') || name.includes('zira') || name.includes('susan') || name.includes('google');
+                }
+            });
+
+            // Fallback: Just match language
+            if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.toLowerCase().includes(State.voice.recognition.lang.toLowerCase().split('-')[0]));
+            }
+            
+            // Ultimate Fallback
+            if (!selectedVoice && voices.length > 0) selectedVoice = voices[0];
+
+            if(selectedVoice) utterance.voice = selectedVoice;
+            
+            // Pitch/Rate adjustments for Persona
+            if(['Ursa', 'Pegasus'].includes(persona)) { utterance.pitch = 0.8; utterance.rate = 0.9; } 
+            if(['Nova', 'Capella'].includes(persona)) { utterance.pitch = 1.1; utterance.rate = 1.05; } 
+
+            utterance.onend = () => {
+                if (State.voice.active) {
+                    setTimeout(startListening, 300);
+                }
+            };
+            State.voice.synth.speak(utterance);
+        }
+
+        // --- UTILITIES ---
+        window.copyCode = (btn) => {
+            const pre = btn.closest('pre');
+            const code = pre.querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const icon = btn.querySelector('i');
+                icon.className = "fas fa-check";
+                btn.style.color = "var(--success)";
+                setTimeout(() => { icon.className = "fas fa-copy"; btn.style.color = ""; }, 2000);
+            });
+        };
+
+        function autoExpand(el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 150)}px`; }
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('open');
+            document.getElementById('overlay').style.display = sb.classList.contains('open') && window.innerWidth <= 768 ? 'block' : 'none';
+        }
+        function openModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(e => e.style.display='none'); 
+            document.getElementById('overlay').style.display='none';
+            document.getElementById('sidebar').classList.remove('open');
+        }
+        function showCustomPopup(title, msg, showInput, callback) {
+            document.getElementById('popupTitle').innerText = title;
+            document.getElementById('popupMsg').innerText = msg;
+            const pInput = document.getElementById('popupInput');
+            pInput.style.display = showInput ? 'block' : 'none';
+            pInput.value = "";
+            document.getElementById('customPopup').style.display = 'flex';
+            if(showInput) pInput.focus();
+
+            const pBtn = document.getElementById('popupActionBtn');
+            const newBtn = pBtn.cloneNode(true);
+            pBtn.parentNode.replaceChild(newBtn, pBtn);
+            
+            newBtn.onclick = () => {
+                if(showInput && !pInput.value) return; 
+                document.getElementById('customPopup').style.display = 'none';
+                if (callback) callback(pInput.value);
+            };
+        }
+        function closeCustomPopup() { document.getElementById('customPopup').style.display = 'none'; }
+        function customAlert(msg) { showCustomPopup("Notification", msg, false, null); }
+        
+        function handleFileUpload(e) { customAlert("File Loaded: " + e.target.files[0].name); }
+
+        // --- BOOTSTRAP ---
+        window.onload = () => {
+            loadPreferences();
+            loadHistory();
+            loadSettings();
+            loadSystemData(); 
+            if(window.speechSynthesis) window.speechSynthesis.getVoices();
+        };
+    </script>
+</body>
+</html>
