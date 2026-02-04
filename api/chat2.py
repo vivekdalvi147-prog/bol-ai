@@ -103,7 +103,7 @@ class handler(BaseHTTPRequestHandler):
                     "Content-Type": "application/json"
                 },
                 data=json.dumps({
-                    "model": "arcee-ai/trinity-large-preview:free",
+                    "model": "tngtech/deepseek-r1t2-chimera:free",
                     "messages": messages,
                     "reasoning": {"enabled": True}
                 })
