@@ -3,6 +3,7 @@ import json
 import requests
 import os
 from datetime import datetime
+import random
 
 # Global dictionary to store usage in memory
 API_USAGE = {}
@@ -20,21 +21,14 @@ class handler(BaseHTTPRequestHandler):
 
             post_data = json.loads(self.rfile.read(content_length))
             
-            # Extract Image API Parameters
-            # Client must send 'prompt' and 'image' (base64 string)
+            # Extract Parameters (Only Prompt is required now)
             user_prompt = post_data.get('prompt')
-            input_image = post_data.get('image') 
+            aspect_ratio = post_data.get('aspect_ratio', "1:1") # Default Square
             
-            # Optional parameters with defaults
-            aspect_ratio = post_data.get('aspect_ratio', "match_input_image")
-            steps = post_data.get('steps', 30)
-            cfg_scale = post_data.get('cfg_scale', 3.5)
-            seed = post_data.get('seed', 0)
-
-            if not user_prompt or not input_image:
+            if not user_prompt:
                 self.send_response(400)
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing 'prompt' or 'image' in request body"}).encode())
+                self.wfile.write(json.dumps({"error": "Missing 'prompt' in request body"}).encode())
                 return
 
             # 2. Get Keys from Environment Variable (MY_API)
@@ -46,7 +40,7 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "No API Keys found in environment variable 'MY_API'"}).encode())
                 return
 
-            # 3. Rate Limiting Logic (SAME AS OLD CODE)
+            # 3. Rate Limiting Logic (Same as before)
             now = datetime.now()
             current_minute = now.strftime("%Y-%m-%d %H:%M")
             current_day = now.strftime("%Y-%m-%d")
@@ -59,41 +53,26 @@ class handler(BaseHTTPRequestHandler):
                 key = key.strip() 
                 if not key: continue
 
-                # Initialize key usage if not exists
                 if key not in API_USAGE:
-                    API_USAGE[key] = {
-                        "minute_time": current_minute,
-                        "minute_count": 0,
-                        "daily_date": current_day,
-                        "daily_count": 0
-                    }
+                    API_USAGE[key] = {"minute_time": current_minute, "minute_count": 0, "daily_date": current_day, "daily_count": 0}
 
-                # Reset Daily Count if date changed
                 if API_USAGE[key]["daily_date"] != current_day:
                     API_USAGE[key]["daily_date"] = current_day
                     API_USAGE[key]["daily_count"] = 0
 
-                # Reset Minute Count if minute changed
                 if API_USAGE[key]["minute_time"] != current_minute:
                     API_USAGE[key]["minute_time"] = current_minute
                     API_USAGE[key]["minute_count"] = 0
 
-                # --- CHECK LIMITS ---
-                # 1. Per Day Limit (50)
                 if API_USAGE[key]["daily_count"] >= 50:
-                    reason_for_fail = "Daily limit (50 calls) reached for all keys."
+                    reason_for_fail = "Daily limit (50 calls) reached."
                     continue 
-
-                # 2. Per Minute Limit (5)
                 if API_USAGE[key]["minute_count"] >= 5:
-                    reason_for_fail = "Minute limit (5 calls) reached. Please wait a moment."
+                    reason_for_fail = "Minute limit (5 calls) reached."
                     continue
 
-                # If both checks pass, select this key
                 selected_key = key
                 selected_index = i + 1
-                
-                # Increment both counters
                 API_USAGE[key]["minute_count"] += 1
                 API_USAGE[key]["daily_count"] += 1
                 break 
@@ -102,13 +81,11 @@ class handler(BaseHTTPRequestHandler):
                 self.send_response(429) 
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": f"Server Busy: {reason_for_fail}"
-                }).encode())
+                self.wfile.write(json.dumps({"error": f"Server Busy: {reason_for_fail}"}).encode())
                 return
 
-            # 4. Prepare API Call for NVIDIA Flux
-            invoke_url = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-kontext-dev"
+            # 4. Prepare API Call for NVIDIA Flux.1 Dev (Text to Image)
+            invoke_url = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev"
 
             headers = {
                 "Authorization": f"Bearer {selected_key}",
@@ -116,29 +93,28 @@ class handler(BaseHTTPRequestHandler):
                 "Content-Type": "application/json"
             }
 
+            # Handle Aspect Ratio to Width/Height
+            width, height = 1024, 1024
+            if aspect_ratio == "16:9":
+                width, height = 1024, 576
+            elif aspect_ratio == "9:16":
+                width, height = 576, 1024
+
             payload = {
                 "prompt": user_prompt,
-                "image": input_image, # Needs to be proper Base64 string
-                "aspect_ratio": aspect_ratio,
-                "steps": steps,
-                "cfg_scale": cfg_scale,
-                "seed": seed
+                "width": width,
+                "height": height,
+                "steps": 28,
+                "guidance_scale": 3.5,
+                "seed": random.randint(0, 100000) # Random seed for new results every time
             }
 
             # 5. Make the Request
             ai_res = requests.post(invoke_url, headers=headers, json=payload)
             
-            # 6. Handle Response
             if ai_res.status_code == 200:
                 data = ai_res.json()
-                
-                # Add usage metadata
                 data["api_index"] = f"Key-{selected_index}" 
-                data["usage_stats"] = {
-                    "today_total": API_USAGE[selected_key]["daily_count"],
-                    "this_minute": API_USAGE[selected_key]["minute_count"]
-                }
-
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
