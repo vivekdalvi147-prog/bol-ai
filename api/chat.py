@@ -4,25 +4,12 @@ import requests
 import os
 from datetime import datetime
 
-# Global dictionary for Groq Key usage
+# युसेज ट्रॅक करण्यासाठी ग्लोबल डिक्शनरी
 API_USAGE = {}
-
-# --- Pastebin मधून System Instruction लोड करण्याचे फंक्शन ---
-def get_system_instruction():
-    # तुमची RAW Pastebin लिंक इथे टाका
-    PASTEBIN_URL = "https://pastebin.com/raw/w0JNNj2W" 
-    try:
-        response = requests.get(PASTEBIN_URL, timeout=5)
-        if response.status_code == 200:
-            return response.text
-        else:
-            return "You are Bol AI, a helpful assistant." # Fallback जर एरर आला तर
-    except:
-        return "You are Bol AI, a helpful assistant." # Fallback जर इंटरनेट इश्यू आला तर
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
-        # CORS साठी हेडर्स
+        # ब्राउझर CORS सुरक्षा हेडर्स
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -31,38 +18,57 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            # १. ओळख आणि सुरक्षा (Authentication)
+            # १. सुरक्षा आणि ओळख तपासणी (Authentication)
             referer = self.headers.get('Referer', '')
             user_provided_key = self.headers.get('x-my-client-key', '')
             
+            # Vercel Settings मधून तुमची पेड की लिस्ट मिळवा
             paid_clients = os.environ.get("PAID_CLIENTS", "").split(",")
             paid_clients = [k.strip() for k in paid_clients if k.strip()]
             
             is_allowed = False
+            # तुमच्या वेबसाईटवरून (bol-ai.vercel.app) आलेली विनंती फ्री आहे
             if "bol-ai.vercel.app" in referer:
                 is_allowed = True
+            # जर युजरने बरोबर 'Custom Key' पाठवली असेल
             elif user_provided_key in paid_clients and user_provided_key != "":
                 is_allowed = True
+            # ट्रायल की
             elif user_provided_key == "free-trial-api-123":
                 is_allowed = True
 
             if not is_allowed:
-                self.send_error_response(401, "Unauthorized: Please provide a valid Key.")
+                self.send_error_response(401, "Unauthorized: Access Denied. Invalid API Key.")
                 return
 
-            # २. इनपुट डेटा वाचणे
+            # २. डेटा वाचणे
             content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                self.send_error_response(400, "No data received")
+                return
+
             post_data = json.loads(self.rfile.read(content_length))
             user_msg = post_data.get('message')
             history = post_data.get('history', [])
 
-            # ३. Pastebin मधून तुमची 'Full System Instruction' मिळवणे
-            system_instruction = get_system_instruction()
+            # ३. AI ची स्वतःची ओळख (System Instruction)
+            # इथे तुमचे नाव आणि AI चे नाव आपण फिक्स केले आहे
+            SYSTEM_INSTRUCTION = (
+                "You are 'Bol-AI', a highly intelligent and friendly AI assistant. "
+                "You were developed by 'Vivek Vijay Dalvi'. "
+                "Always maintain your identity as Bol-AI. "
+                "If someone asks about your creator or developer, clearly state that you were developed by Vivek Vijay Dalvi. "
+                "Provide helpful, accurate, and polite responses in English or Marathi as per the user's preference."
+            )
 
-            # ४. Groq API Keys निवडणे (तुमचे Rotation लॉजिक)
+            # ४. Groq API Keys निवडणे (Key Rotation Logic)
             all_keys = os.environ.get("MY_API_KEYS", "").split(",")
             all_keys = [k.strip() for k in all_keys if k.strip()]
             
+            if not all_keys:
+                self.send_error_response(500, "Backend Error: No Groq keys configured.")
+                return
+
             now = datetime.now()
             current_minute = now.strftime("%Y-%m-%d %H:%M")
             current_day = now.strftime("%Y-%m-%d")
@@ -86,15 +92,15 @@ class handler(BaseHTTPRequestHandler):
                     break
 
             if not selected_key:
-                self.send_error_response(429, "Rate Limit Exceeded: Server Busy.")
+                self.send_error_response(429, "Rate Limit Exceeded: All servers are busy.")
                 return
 
-            # ५. मेसेजेस तयार करणे (System Instruction सह)
-            messages = [{"role": "system", "content": system_instruction}]
+            # ५. मेसेजेस तयार करणे (Identity सह)
+            messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
             messages.extend(history)
             messages.append({"role": "user", "content": user_msg})
 
-            # ६. Groq ला कॉल करणे
+            # ६. Groq ला कॉल करणे (Kimi Model)
             groq_url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {
                 "Authorization": f"Bearer {selected_key}",
@@ -108,15 +114,15 @@ class handler(BaseHTTPRequestHandler):
 
             ai_res = requests.post(groq_url, headers=headers, json=payload)
             
-            # ७. रिस्पॉन्स पाठवणे
+            # ७. फायनल रिस्पॉन्स ग्राहकाला पाठवणे
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Origin', '*') # CORS साठी
             self.end_headers()
             self.wfile.write(ai_res.content)
 
         except Exception as e:
-            self.send_error_response(500, f"Internal Error: {str(e)}")
+            self.send_error_response(500, f"Internal Server Error: {str(e)}")
 
     def send_error_response(self, code, message):
         self.send_response(code)
