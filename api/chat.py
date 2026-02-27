@@ -83,7 +83,7 @@ class handler(BaseHTTPRequestHandler):
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "moonshotai/kimi-k2-instruct",
+                "model": "llama-3.3-70b-versatile",
                 "messages": messages,
                 "temperature": 0.2
             }
