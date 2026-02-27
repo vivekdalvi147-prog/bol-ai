@@ -113,7 +113,7 @@ class handler(BaseHTTPRequestHandler):
             payload = {
                 "model": "moonshotai/kimi-k2-instruct",
                 "messages": messages,
-                "temperature": 0.7
+                "temperature": 0.2
             }
 
             ai_res = requests.post(groq_url, headers=headers, json=payload)
