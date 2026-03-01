@@ -4,113 +4,133 @@ import requests
 import os
 from datetime import datetime
 
-# Global dictionary to track usage
-# Format: { "key": {"day": "YYYY-MM-DD", "day_count": 0, "min": "YYYY-MM-DD HH:MM", "min_count": 0} }
-API_USAGE = {}
+# Bhava, apun ek global dabba (dictionary) banvlay jyat sagla hishob rahil
+# Hya madhe aplya keys chi daily, hourly, minutely ani "per day 1M token" chi limit track hoil
+API_CHA_HISHOB = {}
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
-            # 1. Parse Input Data
+            # 1. Pahile check karuya apun la client kadhun data aalay ki nai
             content_length = int(self.headers.get('Content-Length', 0))
             if content_length == 0:
-                self.send_error_response(400, "No data received")
+                self.send_error_response(400, "Bhau, data tar de!")
                 return
 
             post_data = json.loads(self.rfile.read(content_length))
-            user_msg = post_data.get('message')
-            system_prompt = post_data.get('system', "You are a helpful assistant.")
-            history = post_data.get('history', [])
+            user_msg = post_data.get('message', '')
+            system_prompt = post_data.get('system', "")
+            history = post_data.get('history',[])
 
-            # 2. Get API Keys from Environment
-            all_keys = os.environ.get("MY_API_KEYS", "").split(",")
-            all_keys = [k.strip() for k in all_keys if k.strip()]
+            # 2. Vercel madhun aplya saglya keys gheu (CEREBRAS_API_KEY_vivek)
+            # Keys apun comma (,) deun save kelyat: "key1,key2,key3"
+            all_keys_str = os.environ.get("CEREBRAS_API_KEY_vivek", "")
+            all_keys =[k.strip() for k in all_keys_str.split(",") if k.strip()]
             
             if not all_keys:
-                self.send_error_response(500, "No API Keys found in environment")
+                self.send_error_response(500, "Are bhava, API keys naiye env madhe! Set kar pahile.")
                 return
 
-            # 3. Time tracking for limits
+            # 3. Aajcha time ani date kadhun gheu, mhanje limits set karta yetil
             now = datetime.now()
-            current_minute = now.strftime("%Y-%m-%d %H:%M")
+            current_min = now.strftime("%Y-%m-%d %H:%M")
+            current_hour = now.strftime("%Y-%m-%d %H")
             current_day = now.strftime("%Y-%m-%d")
 
             selected_key = None
-            selected_index = 0
-
-            # 4. Key Rotation & Rate Limiting Logic
-            for i, key in enumerate(all_keys):
-                if key not in API_USAGE:
-                    API_USAGE[key] = {
-                        "day": current_day, "day_count": 0,
-                        "min": current_minute, "min_count": 0
+            
+            # 4. Aata ek ek key check karuya, jyachi limit baki ahe ti key gheu
+            for key in all_keys:
+                # Jar key aplya hishob madhe nassel, tar tila add karuya (survatila)
+                if key not in API_CHA_HISHOB:
+                    API_CHA_HISHOB[key] = {
+                        "min": current_min, "min_calls": 0,
+                        "hour": current_hour, "hour_calls": 0,
+                        "day": current_day, "day_calls": 0,
+                        "day_tokens": 0 # PER DAY 1 Million token track karnyasathi
                     }
-
-                stats = API_USAGE[key]
-
-                # Reset Minute Count if minute changed
-                if stats["min"] != current_minute:
-                    stats["min"] = current_minute
-                    stats["min_count"] = 0
-
-                # Reset Day Count if day changed
+                    
+                stats = API_CHA_HISHOB[key]
+                
+                # Time change zala ki junya limit che counter zero (0) karuya
+                if stats["min"] != current_min:
+                    stats["min"] = current_min
+                    stats["min_calls"] = 0
+                    
+                if stats["hour"] != current_hour:
+                    stats["hour"] = current_hour
+                    stats["hour_calls"] = 0
+                    
                 if stats["day"] != current_day:
                     stats["day"] = current_day
-                    stats["day_count"] = 0
-
-                # Check Limits: 30 per minute AND 1000 per day
-                if stats["min_count"] < 30 and stats["day_count"] < 1000:
+                    stats["day_calls"] = 0
+                    stats["day_tokens"] = 0 # Navin divas, navin 1 million limit!
+                    
+                # Aata main cheking! (60/min, 900/hr, 14400/day ani PER DAY 1 Million Tokens)
+                if (stats["min_calls"] < 60 and 
+                    stats["hour_calls"] < 900 and 
+                    stats["day_calls"] < 14400 and 
+                    stats["day_tokens"] < 1000000): # Divsala 1M Token check
+                    
+                    # Sagla barobar ahe, tar hi key lock karuya
                     selected_key = key
-                    selected_index = i + 1
-                    stats["min_count"] += 1
-                    stats["day_count"] += 1
+                    
+                    # Key use keli mhanun hishob vadhvuya
+                    stats["min_calls"] += 1
+                    stats["hour_calls"] += 1
+                    stats["day_calls"] += 1
                     break
 
+            # Jar eka pan key chi limit baki nassel, tar error deu
             if not selected_key:
-                self.send_error_response(429, "Rate Limit Exceeded: All keys are busy (Max 30/min or 1000/day).")
+                self.send_error_response(429, "Bhaava, aplya saglya keys chi limit sampli ahe (Tokens kivha Time limit full zhaliye). Dusri navin key tak kivha udya try kar!")
                 return
 
-            # 5. Prepare Messages for Chat Completion
+            # 5. Message ready karuya Cerebras la pathavnya sathi
             messages = [{"role": "system", "content": system_prompt}]
             messages.extend(history)
-            messages.append({"role": "user", "content": user_msg})
+            if user_msg:
+                messages.append({"role": "user", "content": user_msg})
 
-            # 6. Call Groq API (Kimi Model)
-            # Note: Groq uses OpenAI compatible endpoint
-            groq_url = "https://api.groq.com/openai/v1/chat/completions"
+            # 6. Cerebras API la call maruya
+            url = "https://api.cerebras.ai/v1/chat/completions"
             headers = {
                 "Authorization": f"Bearer {selected_key}",
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "llama-3.3-70b-versatile",
+                "model": "llama3.1-8b", # Tula jo model hava to thev
                 "messages": messages,
-                "temperature": 0.2
+                "max_completion_tokens": 8192,
+                "temperature": 1,
+                "top_p": 1,
+                "stream": False # Tokens count karayche ahet mhanun stream band thevlay
             }
 
-            ai_res = requests.post(groq_url, headers=headers, json=payload)
-            
+            ai_res = requests.post(url, headers=headers, json=payload)
+
             if ai_res.status_code == 200:
                 data = ai_res.json()
-                # Metadata add karna (kaunsa key use hua)
-                data["api_usage_info"] = {
-                    "key_index": selected_index,
-                    "min_remaining": 30 - API_USAGE[selected_key]["min_count"],
-                    "day_remaining": 1000 - API_USAGE[selected_key]["day_count"]
-                }
+                
+                # 7. Token cha hishob update karuya (Input + Output = Total Tokens)
+                total_tokens_used = data.get("usage", {}).get("total_tokens", 0)
+                API_CHA_HISHOB[selected_key]["day_tokens"] += total_tokens_used
 
+                # Response client la pathvuya
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps(data).encode())
             else:
-                # API error handles
+                # API ne kahi lafda kela tar direct tich error pathvuya
                 self.send_response(ai_res.status_code)
+                self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(ai_res.content)
 
         except Exception as e:
-            self.send_error_response(500, f"Internal Server Error: {str(e)}")
+            # Code phatla tar hi error disel
+            self.send_error_response(500, f"Kahitari vanda zala bhaava: {str(e)}")
 
     def send_error_response(self, code, message):
         self.send_response(code)
