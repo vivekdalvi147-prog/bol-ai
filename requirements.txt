@@ -1,1 +1,3 @@
 requests
+cerebras-cloud-sdk
+redis
