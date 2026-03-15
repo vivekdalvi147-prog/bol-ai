@@ -18,7 +18,7 @@ def cerebras_chat(message, system="", history=None):
         messages.append({"role": "user", "content": message})
 
     headers = {
-        "Authorization": f"Bearer {CEREBRAS_API_KEY}",
+        "Authorization": f"Bearer {CEREBRAS_API_KEY_vivek}",
         "Content-Type": "application/json"
     }
 
