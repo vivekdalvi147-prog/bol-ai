@@ -80,7 +80,7 @@ class handler(BaseHTTPRequestHandler):
                 self.send_json_response(429, {"error": "All API keys are rate-limited. Please try again later."})
                 return
             
-            client = Cerebras(api_key=selected_api_key, api_url="https://api.cerebras.ai/v1")
+            client = Cerebras(api_key=selected_api_key, api_url="https://api.cerebras.ai/v1/chat/completions")
 
             messages = []
             if system_prompt:
